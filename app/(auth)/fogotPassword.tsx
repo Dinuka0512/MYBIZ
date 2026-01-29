@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../../FierbaseConfig';
-import { Validator } from '../../util/Validations';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
+import EmailSender from '../../util/EmailSender'; // instance import
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
 
   const handleReset = async () => {
-    // router.push("/otp")
+    if (!email) {
+      Alert.alert("Error", "Please enter your email");
+      return;
+    }
+
     try {
-        await sendPasswordResetEmail(auth, email);
-        Alert.alert("Check your inbox", "A reset link has been sent!");
-    } catch (error: any) {
-        Alert.alert("Error", error.message);
+      await EmailSender.sendEmail(
+        email,
+        `Hi! Click this link to reset your password: https://yourapp.com/reset`
+      );
+
+      Alert.alert("Success", "Reset link has been sent to your email!");
+    } catch (error) {
+      Alert.alert("Error", "Failed to send email. Try again later.");
     }
   };
 
@@ -24,8 +30,6 @@ const ForgotPassword = () => {
       contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
     >
       <View className="p-8">
-        
-        {/* Icon/Header Section */}
         <View className="items-center mb-10">
           <Text className="text-3xl font-extrabold text-center text-gray-800">
             Forgot Password?
@@ -35,7 +39,6 @@ const ForgotPassword = () => {
           </Text>
         </View>
 
-        {/* Input Section */}
         <View className="mb-8">
           <Text className="mb-2 ml-1 font-medium text-gray-600">Email Address</Text>
           <TextInput
@@ -48,7 +51,6 @@ const ForgotPassword = () => {
           />
         </View>
 
-        {/* Reset Button */}
         <TouchableOpacity
           className="items-center p-4 bg-gray-800 shadow-lg rounded-2xl"
           onPress={handleReset}
@@ -56,7 +58,6 @@ const ForgotPassword = () => {
           <Text className="text-lg font-bold text-white">Send Reset Link</Text>
         </TouchableOpacity>
 
-        {/* Back to Login Footer */}
         <TouchableOpacity 
           onPress={() => router.back()} 
           className="mt-10"
@@ -65,7 +66,6 @@ const ForgotPassword = () => {
             Back to Login
           </Text>
         </TouchableOpacity>
-
       </View>
     </ScrollView>
   );

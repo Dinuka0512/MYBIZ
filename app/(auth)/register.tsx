@@ -2,7 +2,7 @@ import { View, Text, Image, TextInput, TouchableOpacity, ScrollView, Alert } fro
 import React, { useState } from 'react'
 import { router } from 'expo-router';
 import { registration } from "../../service/authService"
-import { Validator } from '../../util/Validations';
+import { Validator } from '../../util/validations';
 
 
 const Register = () => {

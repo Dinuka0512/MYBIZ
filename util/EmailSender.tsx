@@ -1,4 +1,3 @@
-// EmailSender.ts
 import emailjs from "emailjs-com";
 
 class EmailSender {
@@ -6,7 +5,7 @@ class EmailSender {
   private templateId = 'template_z6h4cmn';
   private publicKey = 'q8dcmKDCAgHv7QYGs';
 
-  async sendEmail(to_email: string, message: string, from_name = "My App") {
+  async sendEmail(to_email: string, message: string, from_name = "MYBIZ - One app. Every Business.") {
     const templateParams = {
       to_email,
       from_name,
@@ -28,4 +27,4 @@ class EmailSender {
   }
 }
 
-export default EmailSender;
+export default new EmailSender;

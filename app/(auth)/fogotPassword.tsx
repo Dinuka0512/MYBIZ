@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { router } from 'expo-router';
-import EmailSender from '../../util/EmailSender'; // instance import
+import { router } from 'expo-router'// instance import
+import { sendPasswordResetEmail } from 'firebase/auth'
+import { auth } from '../../FierbaseConfig'
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -13,14 +14,43 @@ const ForgotPassword = () => {
     }
 
     try {
-      await EmailSender.sendEmail(
-        email,
-        `Hi! Click this link to reset your password: https://yourapp.com/reset`
-      );
+      sendPasswordResetEmail(auth, email)
+        .then(()=>{
+          Alert.alert(
+            "Success",
+            "Check your inbox! A password reset link has been sent."
+          );
+        })
+    } catch (error: any) {
+      console.log("Reset Error:", error);
 
-      Alert.alert("Success", "Reset link has been sent to your email!");
-    } catch (error) {
-      Alert.alert("Error", "Failed to send email. Try again later.");
+      let message = "Something went wrong. Please try again.";
+      switch (error.code) {
+        case "auth/invalid-email":
+          message = "Invalid email address";
+          break;
+
+        case "auth/user-not-found":
+          message = "No account found with this email";
+          break;
+
+        case "auth/missing-email":
+          message = "Please enter your email";
+          break;
+
+        case "auth/network-request-failed":
+          message = "Network error. Check your internet";
+          break;
+
+        case "auth/too-many-requests":
+          message = "Too many attempts. Try again later";
+          break;
+
+        default:
+          message = error.message;
+      }
+
+      Alert.alert("Error", message);
     }
   };
 

@@ -1,52 +1,77 @@
-import { Slot } from 'expo-router'
-import { Text, TouchableOpacity, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
+import { Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
+import Index from "./index";
 
-const _layout = () => {
+import Home from "./home";
+import Customers from "./customer";
+import Items from "./item";
+import Sales from "./sales";
+import Profile from "./profile";
+
+
+const _layout = () => {  
+  const [goto, setGoto] = useState(1);
+  function findNavigation() {
+    switch (goto) {
+      case 1:
+        return <Home />;
+      case 2:
+        return <Customers />;
+      case 3:
+        return <Items />;
+      case 4:
+        return <Sales />;
+      case 5:
+        return <Profile />;
+      default:
+        return <Home />;
+    }
+  }
+
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      
+    <View className="flex-1 bg-white">
+
+      <Index/>
       {/* Screen content */}
       <View className="flex-1">
-        <Slot />
+        {findNavigation()}
       </View>
 
       {/* Bottom Navigation */}
-      <View className="flex items-center justify-center w-full h-16">
-        {/* Yellow bar centered inside red container */}
-        <View className="flex-row items-center justify-around w-full p-2 border-t-2 border-gray-200">
-          
-          <TouchableOpacity className="items-center justify-center">
-            <Ionicons name="home-outline" size={24} color="#000" />
-            <Text className="mt-1 text-xs text-black">Home</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity className="items-center justify-center">
-            <Ionicons name="people-outline" size={24} color="#000" />
-            <Text className="mt-1 text-xs text-black">Customer</Text>
+      <View className="border-t border-gray-200 mb-14">
+        <View className="flex-row items-center justify-around h-16">
+
+          <TouchableOpacity onPress={() => setGoto(1)} className="items-center">
+            <Ionicons name="home-outline" size={24} />
+            <Text className="text-xs">Home</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity className="items-center justify-center">
-            <Ionicons name="cube-outline" size={24} color="#000" />
-            <Text className="mt-1 text-xs text-black">Item</Text>
+          <TouchableOpacity onPress={() => setGoto(2)} className="items-center">
+            <Ionicons name="people-outline" size={24} />
+            <Text className="text-xs">Customer</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity className="items-center justify-center">
-            <Ionicons name="cart-outline" size={24} color="#000" />
-            <Text className="mt-1 text-xs text-black">Sales</Text>
+
+          <TouchableOpacity onPress={() => setGoto(3)} className="items-center">
+            <Ionicons name="cube-outline" size={24} />
+            <Text className="text-xs">Item</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity className="items-center justify-center">
-            <Ionicons name="person-circle-outline" size={24} color="#000" />
-            <Text className="mt-1 text-xs text-black">Profile</Text>
+
+          <TouchableOpacity onPress={() => setGoto(4)} className="items-center">
+            <Ionicons name="cart-outline" size={24} />
+            <Text className="text-xs">Sales</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setGoto(5)} className="items-center">
+            <Ionicons name="person-circle-outline" size={24} />
+            <Text className="text-xs">Profile</Text>
           </TouchableOpacity>
 
         </View>
       </View>
 
-    </SafeAreaView>
-  )
-}
+    </View>
+  );
+};
 
-export default _layout
+export default _layout;

@@ -3,7 +3,8 @@ import React, { useState } from 'react'
 import { router } from 'expo-router';
 import { registration } from "../../service/authService"
 import { Validator } from '../../util/validations';
-
+// 1. Import the icon library
+import { Feather } from '@expo/vector-icons';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -11,46 +12,40 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // 2. State for visibility toggles
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+
   // register user
-  function register(){
+  function register() {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert(
-        "Missing Information",
-        "Please fill in all the details to create your account."
-      )
+      Alert.alert("Missing Information", "Please fill in all the details.");
       return;
     }
 
-    if(!Validator.isEmail(email)){
+    if (!Validator.isEmail(email)) {
       return Alert.alert("Invalid Email", "Please enter a valid email address.");
     }
 
-    if(!Validator.isName(name)){
+    if (!Validator.isName(name)) {
       return Alert.alert("Invalid Name", "Name should only contain letters.");
     }
 
-    // 1. Check Length First
     if (!Validator.isPassword(password)) {
       return Alert.alert("Invalid Password", "The Password must have more than 6 characters.");
     }
 
-    // 2. Check Match Second
     if (password !== confirmPassword) {
-      return Alert.alert(
-        "Password Mismatch",
-        "Your password and confirm password do not match. Please try again."
-      );
+      return Alert.alert("Password Mismatch", "Passwords do not match.");
     }
 
-    
     registration(name, email, password);
     clearText();
     router.push("/login");
-    return alert("User Registed Successfuly..")
+    return Alert.alert("Success", "User Registered Successfully!");
   }
 
-  // clear_Text
-  function clearText(){
+  function clearText() {
     setName("");
     setEmail("");
     setPassword("");
@@ -58,7 +53,6 @@ const Register = () => {
   }
 
   return (
-    // ScrollView is better for Register screens in case the keyboard covers inputs
     <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="bg-white">
       <View className="justify-center flex-1 p-6">
         
@@ -74,9 +68,9 @@ const Register = () => {
         </View>
 
         {/* Input Fields */}
-        <View className="space-y-4">
+        <View>
           {/* Name Field */}
-          <View>
+          <View className="mb-4">
             <Text className="mb-2 ml-1 text-gray-600">Full Name</Text>
             <TextInput
               className="p-4 border border-gray-300 rounded-2xl bg-gray-50"
@@ -87,7 +81,7 @@ const Register = () => {
           </View>
 
           {/* Email Field */}
-          <View>
+          <View className="mb-4">
             <Text className="mb-2 ml-1 text-gray-600">Email Address</Text>
             <TextInput
               className="p-4 border border-gray-300 rounded-2xl bg-gray-50"
@@ -100,34 +94,50 @@ const Register = () => {
           </View>
 
           {/* Password Field */}
-          <View>
+          <View className="mb-4">
             <Text className="mb-2 ml-1 text-gray-600">Password</Text>
-            <TextInput
-              className="p-4 border border-gray-300 rounded-2xl bg-gray-50"
-              placeholder="••••••••"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+            <View className="relative flex-row items-center">
+              <TextInput
+                className="flex-1 p-4 border border-gray-300 rounded-2xl bg-gray-50"
+                placeholder="••••••••"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!passwordVisible}
+              />
+              <TouchableOpacity 
+                onPress={() => setPasswordVisible(!passwordVisible)}
+                className="absolute right-4"
+              >
+                <Feather name={passwordVisible ? "eye" : "eye-off"} size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Confirm Password Field */}
-          <View>
+          <View className="mb-4">
             <Text className="mb-2 ml-1 text-gray-600">Confirm Password</Text>
-            <TextInput
-              className="p-4 border border-gray-300 rounded-2xl bg-gray-50"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-            />
+            <View className="relative flex-row items-center">
+              <TextInput
+                className="flex-1 p-4 border border-gray-300 rounded-2xl bg-gray-50"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!confirmVisible}
+              />
+              <TouchableOpacity 
+                onPress={() => setConfirmVisible(!confirmVisible)}
+                className="absolute right-4"
+              >
+                <Feather name={confirmVisible ? "eye" : "eye-off"} size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
         {/* Register Button */}
         <TouchableOpacity 
-          className="items-center p-4 mt-8 bg-gray-700 shadow-md rounded-2xl"
-          onPress={() =>register()}
+          className="items-center p-4 mt-4 bg-gray-700 shadow-md rounded-2xl"
+          onPress={register}
         >
           <Text className="text-lg font-bold text-white">Sign Up</Text>
         </TouchableOpacity>

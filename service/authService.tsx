@@ -3,6 +3,7 @@ import { doc, setDoc } from 'firebase/firestore'
 import { db,auth } from "../FierbaseConfig"
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const registration = async (name:string, email:string, password:string)=>{
     try {
@@ -46,16 +47,38 @@ export const registration = async (name:string, email:string, password:string)=>
 
 export const login = async (email: string, password: string) => {
   try {
-    // Attempt login
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    Alert.alert("Login Successful")
-    
-    router.push("/(dashboard)")
+    Alert.alert("Success","Login Successful!");
+    await AsyncStorage.setItem("user", JSON.stringify(user))
+    router.push("/(dashboard)");
 
   } catch (error: any) {
-    Alert.alert("Login Failed!..")
+
+    let message = "Login failed. Please try again.";
+
+    switch (error.code) {
+      case "auth/invalid-email":
+        message = "The email address is badly formatted.";
+        break;
+      case "auth/user-not-found":
+        message = "No user found with this email.";
+        break;
+      case "auth/wrong-password":
+        message = "Incorrect password. Please try again.";
+        break;
+      case "auth/too-many-requests":
+        message = "Too many attempts. Please wait and try again later.";
+        break;
+      case "auth/invalid-credential":
+        message = "No User Found with email or Invalid Password."
+        break;
+      default:
+        message = error.message;
+    }
+
+    Alert.alert("Login Failed", message);
     throw error;
   }
 };

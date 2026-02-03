@@ -2,23 +2,47 @@ import { View, Text, ScrollView, Alert } from "react-native";
 import React from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getAllUserData } from "@/service/authService";
+import { useEffect, useState } from "react";
 
 export default function Home() {
-  const user = AsyncStorage.getItem("user");
-  // console.log("USER " + use)
-  if(user == null){
-    Alert.alert("Error Unauthorized", "User is not found.")
-    router.push("/login");
-  }
+  const [userDetails, setUserDetails] = useState<any>(null);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const user = await AsyncStorage.getItem("user");
+
+      if (user == null) {
+        Alert.alert("Error Unauthorized", "User is not found.");
+        router.push("/login");
+      } else {
+        const userConvert = JSON.parse(user);
+        const data = await getAllUserData(userConvert.uid);
+        
+        //HERE SAVE USER DATA 
+        await AsyncStorage.setItem("userDetails", JSON.stringify(data));
+        setUserDetails(data);
+      }
+
+      const udata = await AsyncStorage.getItem("userDetails");
+      if (udata !== null) {
+        setUserDetails(JSON.parse(udata));
+      }
+    };
+
+    getUser();
+  }, []);
+
+  console.log(userDetails);
 
   return (
     <ScrollView className="flex-1 px-6 pt-10 bg-gray-100">
 
      {/* Welcome Section */}
       <View className="p-2 mb-1">
-
+        
         <Text className="mt-1 text-2xl font-bold text-gray-900">
-          Welcome, {user}
+          Welcome,  {userDetails?.name ?? "User"}
         </Text>
 
         <Text className="mt-1 text-sm text-gray-500">

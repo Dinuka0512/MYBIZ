@@ -1,5 +1,5 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
-import { doc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { db,auth } from "../FierbaseConfig"
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
@@ -82,3 +82,46 @@ export const login = async (email: string, password: string) => {
     throw error;
   }
 };
+
+
+export const updateUserProfile = async (userId: string, imageUrl: string) => {
+  try{
+    const userRef = doc(db, "Users", userId);
+
+    await updateDoc(userRef, {
+      profileImage: imageUrl,
+      updatedAt: new Date()
+    });
+
+    Alert.alert("Success", "Image uploaded successfully ");
+  }catch(error){
+    Alert.alert("Error", "Image upload failed");
+    console.log(error);
+  }
+}
+
+export const getAllUserData = async (userId: string) => {
+  try {
+    const userRef = doc(db, "Users", userId);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      const data = userSnap.data(); // actual user fields
+      return data; // return for immediate use
+    } else {
+      Alert.alert("Not Found", "User document does not exist.");
+      return null;
+    }
+  } catch (error: any) {
+    if (error.code === "permission-denied") {
+      Alert.alert("Warning!", "You don't have permission to read this document.");
+    } else if (error.code === "unavailable") {
+      Alert.alert("Network error", "Firestore unavailable.");
+    } else {
+      console.error("Unexpected error:", error);
+      Alert.alert("Unexpected error");
+    }
+    throw error;
+  }
+};
+

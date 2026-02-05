@@ -1,11 +1,11 @@
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Image, Alert } from "react-native";
 import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { auth, db } from "../../FierbaseConfig";
 import uploadToCloudinary from "@/util/UploadCloudinary";
-import { updateUserProfile, updateUserName } from "@/service/authService";
+import { updateUserProfile, updateUserName, getAllUserData } from "@/service/authService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Validator } from "../../util/validations"
 
@@ -64,16 +64,28 @@ const Profile = () => {
       }
 
       if(Validator.isName(name)){
-        updateUserName(userDetails.uid, name)
+        updateUserName(userDetails.uid, name);
+        pageRefresh();
         setModalVisible(false);
       }else{
         Alert.alert("Error", "Name must be 2–50 characters long and can only contain letters, spaces, or hyphens.");
       }
-      
+  
     } catch (error) {
       Alert.alert("Error", "Could not update profile");
     }
   };
+
+  // Here Refreshing the page after update DB
+  const pageRefresh = async () => {
+    try{
+      const userData = await getAllUserData(userDetails.uid);
+      //HERE SAVE USER DATA 
+      await AsyncStorage.setItem("userDetails", JSON.stringify(userData));
+    }catch(error){
+      console.log(error)
+    }
+  }
 
   // Load user details from AsyncStorage
   useEffect(() => {

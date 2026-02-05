@@ -4,28 +4,24 @@ import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { auth, db } from "../../FierbaseConfig";
-import { doc, updateDoc } from "firebase/firestore";
-import { updateProfile } from "firebase/auth";
 import uploadToCloudinary from "@/util/UploadCloudinary";
-import { updateUserProfile } from "@/service/authService";
+import { updateUserProfile, updateUserName } from "@/service/authService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Validator } from "../../util/validations"
 
 const Profile = () => {
   const [name, setName] = useState("Sample User");
   const [profileImage, setProfileImage] = useState("https://via.placeholder.com/150");
   const [email, setEmail] = useState("sample@gmail.com");
   const [modalVisible, setModalVisible] = useState(false);
-  const [tempName, setTempName] = useState("");
   const [userDetails, setUserDetails] = useState<any>(null);
-  const [user, setUser] = useState("");
+ 
+  
   // Update Firestore + AsyncStorage with new image
   async function profileUpdate(imageUrl: string) {
     try {
-      const userString = await AsyncStorage.getItem("user");
-      if (userString !== null) {
-        const user = JSON.parse(userString);
-        const userId = user.uid;
-        await updateUserProfile(userId, imageUrl);
+      if (userDetails) {
+        await updateUserProfile(userDetails.uid, imageUrl);
       } else {
         Alert.alert("Error", "Something went wrong!");
         router.push("/login");
@@ -59,18 +55,21 @@ const Profile = () => {
     }
   };
 
-  // 🔹 Update name in Firebase Auth + Firestore
+  // Update name in Firebase Auth + Firestore
   const handleUpdate = async () => {
     try {
-      const user = auth.currentUser;
-      if (user) {
-        await updateProfile(user, { displayName: tempName });
-        await updateDoc(doc(db, "Users", user.uid), { name: tempName });
-
-        setName(tempName);
-        setModalVisible(false);
-        Alert.alert("Success", "Profile updated!");
+      if(!userDetails){
+        Alert.alert("warning", "Something Went wrong!")
+        router.push("/login")
       }
+
+      if(Validator.isName(name)){
+        updateUserName(userDetails.uid, name)
+        setModalVisible(false);
+      }else{
+        Alert.alert("Error", "Name must be 2–50 characters long and can only contain letters, spaces, or hyphens.");
+      }
+      
     } catch (error) {
       Alert.alert("Error", "Could not update profile");
     }
@@ -162,8 +161,8 @@ const Profile = () => {
 
             <Text className="mb-2 ml-1 text-gray-500">Full Name</Text>
             <TextInput
-              value={tempName}
-              onChangeText={setTempName}
+              value={name}
+              onChangeText={setName}
               placeholder="Enter your name"
               className="p-4 mb-6 text-lg bg-gray-100 border border-gray-200 rounded-2xl"
             />

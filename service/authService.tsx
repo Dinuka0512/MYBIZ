@@ -140,3 +140,18 @@ export const updateUserName = async (userId: string, name: string) => {
     console.log(error);
   }
 }
+
+export const updateUserPassword = async (userId: string, name: string) => {
+  try{
+    const userRef = doc(db, "Users", userId);
+
+    await updateDoc(userRef, {
+      name: name,
+      updatedAt: new Date()
+    });
+
+  }catch(error){
+    Alert.alert("Error", "Update Failed");
+    console.log(error);
+  }
+}

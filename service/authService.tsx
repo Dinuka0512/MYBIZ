@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
+import { createUserWithEmailAndPassword, EmailAuthProvider, reauthenticateWithCredential, signInWithEmailAndPassword, updatePassword } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { db,auth } from "../FierbaseConfig"
 import { Alert } from 'react-native';
@@ -141,17 +141,48 @@ export const updateUserName = async (userId: string, name: string) => {
   }
 }
 
-export const updateUserPassword = async (userId: string, name: string) => {
+export const updateUserPassword = async (userId: string, oldPassword: string, newPassword: string ) => {
   try{
-    const userRef = doc(db, "Users", userId);
+    const user = auth.currentUser;
 
-    await updateDoc(userRef, {
-      name: name,
-      updatedAt: new Date()
-    });
+      if (!user || !user.email) {
+        throw new Error("User not authenticated");
+      }
 
-  }catch(error){
-    Alert.alert("Error", "Update Failed");
-    console.log(error);
+      // 1️⃣ Create credential using old password
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        oldPassword
+      );
+
+      // 2️⃣ Re-authenticate user
+      await reauthenticateWithCredential(user, credential);
+
+      // 3️⃣ Update password
+      await updatePassword(user, newPassword);
+      Alert.alert("Success", "Password updated successfully");
+  } catch (error: any) {
+    console.log("PASSWORD UPDATE ERROR:", error);
+    if (error.code === "auth/invalid-credential") { 
+      Alert.alert("Error", "Invalid credential. Check your email or current password."); 
+    } else if (error.code === "auth/wrong-password") {
+      Alert.alert("Error", "Old password is incorrect");
+    } else if (error.code === "auth/weak-password") {
+      Alert.alert("Error", "Password should be at least 6 characters");
+    } else if (error.code === "auth/requires-recent-login") {
+      Alert.alert(
+        "Session Expired",
+        "Please log in again and retry"
+      );
+    } else {
+      Alert.alert("Error", "Password update failed\n Old password os ");
+    }
+  }
+}
+
+export const accountPermenentlyDelete = async (userId: string, oldPassword: string, newPassword: string ) => {
+  try{
+    // Here I need to delete account permently 
+  } catch (error: any) {
   }
 }

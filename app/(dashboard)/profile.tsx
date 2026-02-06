@@ -20,7 +20,7 @@ import {
   updateUserProfile,
   updateUserName,
   getAllUserData,
-  // updateUserPassword,
+  updateUserPassword
   // deleteUserAccount,
 } from "@/service/authService";
 import { Validator } from "../../util/validations";
@@ -41,6 +41,12 @@ const Profile = () => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [confirmDelete, setConfirmDelete] = useState("");
 
   /* ---------------- IMAGE UPDATE ---------------- */
   const pickImage = async () => {
@@ -98,14 +104,13 @@ const Profile = () => {
       return;
     }
 
-    if(Validator.isPassword(newPassword)){
+    if(!Validator.isPassword(newPassword)){
       Alert.alert("Invalid Password", "The Password must have more than 6 characters.")
       return
     }
 
     try {
       await updateUserPassword(userDetails.uid, oldPassword, newPassword);
-      Alert.alert("Success", "Password updated successfully");
       setPasswordModal(false);
       setOldPassword("");
       setNewPassword("");
@@ -162,32 +167,41 @@ const Profile = () => {
       {/* PROFILE CARD */}
       <View className="px-5 pt-10">
         <View className="p-5 bg-white shadow-sm rounded-2xl">
-          <View className="flex-row items-center">
-            <View className="relative">
-              <Image
-                source={{ uri: profileImage }}
-                className="w-20 h-20 rounded-full"
-              />
-              <TouchableOpacity
-                onPress={pickImage}
-                className="absolute bottom-0 right-0 p-1.5 bg-blue-600 rounded-full"
-              >
-                <Feather name="camera" size={12} color="#fff" />
-              </TouchableOpacity>
+          <View className="flex-row items-center justify-between">
+            
+            {/* Left side: Profile image + name/email */}
+            <View className="flex-row items-center">
+              <View className="relative">
+                <Image
+                  source={{ uri: profileImage }}
+                  className="w-20 h-20 rounded-full"
+                />
+                <TouchableOpacity
+                  onPress={pickImage}
+                  className="absolute bottom-0 right-0 p-1.5 bg-blue-600 rounded-full"
+                >
+                  <Feather name="camera" size={12} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              <View className="ml-4">
+                <Text className="text-xl font-semibold text-gray-900">{name}</Text>
+                <Text className="mt-1 text-sm text-gray-500">{email}</Text>
+                <Text className="mt-1 text-xs text-gray-400">Business Owner</Text>
+              </View>
             </View>
 
-            <View className="flex-1 ml-4">
-              <Text className="text-xl font-semibold text-gray-900">
-                {name}
-              </Text>
-              <Text className="mt-1 text-sm text-gray-500">{email}</Text>
-              <Text className="mt-1 text-xs text-gray-400">
-                Business Owner
-              </Text>
-            </View>
+            {/* Right side: Sign Out button */}
+            <TouchableOpacity
+              onPress={() => auth.signOut().then(() => router.replace("/login"))}
+              className="px-3 py-2 bg-red-600 rounded-lg"
+            >
+              <Text className="text-sm font-bold text-white">Sign Out</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
+
 
       {/* SETTINGS */}
       <View className="px-5 mt-8">
@@ -230,15 +244,6 @@ const Profile = () => {
         </View>
       </View>
 
-      {/* LOGOUT */}
-      <View className="px-5 mt-10 mb-14">
-        <TouchableOpacity
-          onPress={() => auth.signOut().then(() => router.replace("/login"))}
-          className="items-center py-4 bg-red-600 rounded-xl"
-        >
-          <Text className="font-bold text-white">Sign Out</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* --------------- MODALS --------------- */}
 
@@ -265,7 +270,7 @@ const Profile = () => {
 
               <TouchableOpacity
                 onPress={handleUpdate}
-                className="flex-1 p-4 ml-2 bg-blue-600 rounded-xl"
+                className="flex-1 p-4 ml-2 bg-gray-900 rounded-xl"
               >
                 <Text className="font-semibold text-center text-white">
                   Save
@@ -282,27 +287,48 @@ const Profile = () => {
           <View className="p-6 bg-white rounded-t-2xl">
             <Text className="mb-4 text-lg font-semibold">Change Password</Text>
 
-            <TextInput
-              value={oldPassword}
-              onChangeText={setOldPassword}
-              placeholder="Old Password"
-              secureTextEntry
-              className="p-4 mb-4 bg-gray-100 rounded-xl"
-            />
-            <TextInput
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="New Password"
-              secureTextEntry
-              className="p-4 mb-4 bg-gray-100 rounded-xl"
-            />
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm New Password"
-              secureTextEntry
-              className="p-4 mb-6 bg-gray-100 rounded-xl"
-            />
+            {/* Old Password */}
+            <View className="flex-row items-center mb-4 bg-gray-100 rounded-xl">
+              <TextInput
+                value={oldPassword}
+                onChangeText={setOldPassword}
+                placeholder="Old Password"
+                secureTextEntry={!showOldPassword}
+                className="flex-1 p-4"
+              />
+              <TouchableOpacity onPress={() => setShowOldPassword(!showOldPassword)} className="p-2">
+                <Feather name={showOldPassword ? "eye" : "eye-off"} size={20} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            {/* New Password */}
+            <View className="flex-row items-center mb-4 bg-gray-100 rounded-xl">
+              <TextInput
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="New Password"
+                secureTextEntry={!showNewPassword}
+                className="flex-1 p-4"
+              />
+              <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} className="p-2">
+                <Feather name={showNewPassword ? "eye" : "eye-off"} size={20} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Confirm Password */}
+            <View className="flex-row items-center mb-6 bg-gray-100 rounded-xl">
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Confirm New Password"
+                secureTextEntry={!showConfirmPassword}
+                className="flex-1 p-4"
+              />
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-2">
+                <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={20} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
 
             <View className="flex-row">
               <TouchableOpacity
@@ -314,7 +340,7 @@ const Profile = () => {
 
               <TouchableOpacity
                 onPress={handlePasswordUpdate}
-                className="flex-1 p-4 ml-2 bg-blue-600 rounded-xl"
+                className="flex-1 p-4 ml-2 bg-gray-900 rounded-xl"
               >
                 <Text className="font-semibold text-center text-white">
                   Save
@@ -325,20 +351,29 @@ const Profile = () => {
         </View>
       </Modal>
 
+
       {/* DELETE ACCOUNT */}
       <Modal transparent animationType="slide" visible={deleteModal}>
         <View className="justify-end flex-1 bg-black/40">
-          <View className="p-6 bg-white rounded-t-2xl">
-            <Text className="mb-4 text-lg font-semibold text-red-600">
+          <View className="p-6 bg-red-600 rounded-3xl ">
+            <Text className="mb-4 text-lg font-semibold text-white">
               Permanently Delete Account
             </Text>
-            <Text className="mb-6 text-gray-700">
-              This action cannot be undone. Are you sure you want to delete your account?
+            <Text className="mb-6 text-white">
+              This action cannot be undone. To confirm, please type: 
+              <Text className="font-bold text-gray-400"> DELETE ACCOUNT</Text>
             </Text>
+
+            <TextInput
+              value={confirmDelete}
+              onChangeText={setConfirmDelete}
+              placeholder="DELETE ACCOUNT"
+              className="p-4 mb-6 bg-gray-100 rounded-xl"
+            />
 
             <View className="flex-row">
               <TouchableOpacity
-                onPress={() => setDeleteModal(false)}
+                onPress={() => {setDeleteModal(false); setConfirmDelete("");}}
                 className="flex-1 p-4 mr-2 bg-gray-100 rounded-xl"
               >
                 <Text className="text-center text-gray-600">Cancel</Text>
@@ -346,7 +381,10 @@ const Profile = () => {
 
               <TouchableOpacity
                 onPress={handleDeleteAccount}
-                className="flex-1 p-4 ml-2 bg-red-600 rounded-xl"
+                disabled={confirmDelete !== "DELETE ACCOUNT"} // disable unless typed correctly
+                className={`flex-1 p-4 ml-2 rounded-xl ${
+                  confirmDelete === "DELETE ACCOUNT" ? "bg-black" : "bg-gray-600"
+                }`}
               >
                 <Text className="font-semibold text-center text-white">
                   Delete
@@ -356,6 +394,7 @@ const Profile = () => {
           </View>
         </View>
       </Modal>
+
     </ScrollView>
   );
 };

@@ -20,23 +20,23 @@ import {
   updateUserProfile,
   updateUserName,
   getAllUserData,
-  updateUserPassword
-  // deleteUserAccount,
+  updateUserPassword,
+  accountPermenentlyDelete
 } from "@/service/authService";
 import { Validator } from "../../util/validations";
 
 const Profile = () => {
+  const temparyUrl = "https://res.cloudinary.com/dgokbm0dx/image/upload/v1770408971/istockphoto-1695144958-612x612_jpzoft.jpg";
   const [name, setName] = useState("Sample User");
   const [tempName, setTempName] = useState("");
-  const [profileImage, setProfileImage] = useState(
-    "https://via.placeholder.com/150"
-  );
+  const [profileImage, setProfileImage] = useState(temparyUrl);
+  
   const [email, setEmail] = useState("");
   const [userDetails, setUserDetails] = useState<any>(null);
 
   const [editModal, setEditModal] = useState(false);
   const [passwordModal, setPasswordModal] = useState(false);
-  const [deleteModal, setDeleteModal] = useState(false);
+  const [deletecModal, setDeletecModal] = useState(false);
 
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -47,8 +47,10 @@ const Profile = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState("");
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
 
-  /* ---------------- IMAGE UPDATE ---------------- */
+  // IMAGE UPDATE 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -72,7 +74,7 @@ const Profile = () => {
     }
   };
 
-  /* ---------------- NAME UPDATE ---------------- */
+  //  NAME UPDATE
   const handleUpdate = async () => {
     if (!Validator.isName(tempName)) {
       Alert.alert(
@@ -92,7 +94,7 @@ const Profile = () => {
     }
   };
 
-  /* ---------------- PASSWORD UPDATE ---------------- */
+  //  PASSWORD UPDATE
   const handlePasswordUpdate = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
       Alert.alert("Error", "All fields are required");
@@ -120,25 +122,31 @@ const Profile = () => {
     }
   };
 
-  /* ---------------- DELETE ACCOUNT ---------------- */
-  const handleDeleteAccount = async () => {
-    try {
-      // await deleteUserAccount(userDetails.uid);
-      Alert.alert("Account Deleted", "Your account has been deleted");
-      auth.signOut();
-      router.replace("/login");
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to delete account");
+  // DELETE ACCOUNT
+ const handleDeleteAccount = async () => {
+  try {
+    if (!deletePassword) {
+      Alert.alert("Error", "Please enter your password to confirm.");
+      return;
     }
-  };
 
-  /* ---------------- REFRESH USER ---------------- */
+    await accountPermenentlyDelete(userDetails.uid, deletePassword);
+    Alert.alert("Account Deleted", "Your account has been deleted");
+    auth.signOut();
+    router.replace("/login");
+  } catch (error: any) {
+    Alert.alert("Error", error.message || "Failed to delete account");
+  }
+};
+
+
+  // REFRESH USER
   const refreshUser = async () => {
     const data = await getAllUserData(userDetails.uid);
     await AsyncStorage.setItem("userDetails", JSON.stringify(data));
   };
 
-  /* ---------------- LOAD USER ---------------- */
+  // LOAD USER
   useEffect(() => {
     const load = async () => {
       const stored = await AsyncStorage.getItem("userDetails");
@@ -154,7 +162,7 @@ const Profile = () => {
 
       setUserDetails(user);
       setName(user.name);
-      setProfileImage(user.profileImage);
+      setProfileImage(user?.profileImage || temparyUrl);
       setEmail(authData.email);
     };
 
@@ -245,7 +253,7 @@ const Profile = () => {
       </View>
 
 
-      {/* --------------- MODALS --------------- */}
+      {/* MODALS */}
 
       {/* EDIT PROFILE */}
       <Modal transparent animationType="slide" visible={editModal}>
@@ -254,7 +262,6 @@ const Profile = () => {
             <Text className="mb-4 text-lg font-semibold">Edit Profile</Text>
 
             <TextInput
-              value={tempName}
               onChangeText={setTempName}
               className="p-4 mb-6 bg-gray-100 rounded-xl"
               placeholder="Enter your name"
@@ -352,16 +359,16 @@ const Profile = () => {
       </Modal>
 
 
-      {/* DELETE ACCOUNT */}
+      {/* DELETE ACCOUNT*/}
       <Modal transparent animationType="slide" visible={deleteModal}>
         <View className="justify-end flex-1 bg-black/40">
-          <View className="p-6 bg-red-600 rounded-3xl ">
-            <Text className="mb-4 text-lg font-semibold text-white">
+          <View className="p-6 bg-white rounded-3xl">
+            <Text className="mb-4 text-lg font-semibold text-red-500">
               Permanently Delete Account
             </Text>
-            <Text className="mb-6 text-white">
-              This action cannot be undone. To confirm, please type: 
-              <Text className="font-bold text-gray-400"> DELETE ACCOUNT</Text>
+            <Text className="mb-6 text-black">
+              This action cannot be undone. To confirm, please type :
+              <Text className="font-bold text-black"> DELETE ACCOUNT</Text>
             </Text>
 
             <TextInput
@@ -373,7 +380,69 @@ const Profile = () => {
 
             <View className="flex-row">
               <TouchableOpacity
-                onPress={() => {setDeleteModal(false); setConfirmDelete("");}}
+                onPress={() => { setDeleteModal(false); setConfirmDelete(""); }}
+                className="flex-1 p-4 mr-2 bg-gray-100 rounded-xl"
+              >
+                <Text className="text-center text-gray-600">Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  if (confirmDelete === "DELETE ACCOUNT") {
+                    setDeleteModal(false);
+                    setDeletecModal(true); // open password modal
+                  }
+                }}
+                disabled={confirmDelete !== "DELETE ACCOUNT"}
+                className={`flex-1 p-4 ml-2 rounded-xl ${
+                  confirmDelete === "DELETE ACCOUNT" ? "bg-red-600" : "bg-red-200"
+                }`}
+              >
+                <Text className="font-semibold text-center text-white">
+                  Continue
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+
+      {/* DELETE ACCOUNT CONFIRM  */}
+      <Modal transparent animationType="slide" visible={deletecModal}>
+        <View className="justify-center flex-1 bg-black/40">
+          <View className="p-6 mx-6 bg-white rounded-2xl">
+            <Text className="mb-4 text-lg font-semibold text-red-600">
+              Confirm Account Deletion
+            </Text>
+            <Text className="mb-6 text-gray-700">
+              Please enter your password to permanently delete your account.
+            </Text>
+
+            {/* Password input with eye toggle */}
+            <View className="flex-row items-center mb-6 bg-gray-100 rounded-xl">
+              <TextInput
+                value={deletePassword}
+                onChangeText={setDeletePassword}
+                placeholder="Enter your password"
+                secureTextEntry={!showOldPassword}
+                className="flex-1 p-4"
+              />
+              <TouchableOpacity
+                onPress={() => setShowOldPassword(!showOldPassword)}
+                className="p-2"
+              >
+                <Feather
+                  name={showOldPassword ? "eye" : "eye-off"}
+                  size={20}
+                  color="#4B5563"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-row">
+              <TouchableOpacity
+                onPress={() => { setDeletecModal(false); setDeletePassword(""); }}
                 className="flex-1 p-4 mr-2 bg-gray-100 rounded-xl"
               >
                 <Text className="text-center text-gray-600">Cancel</Text>
@@ -381,10 +450,7 @@ const Profile = () => {
 
               <TouchableOpacity
                 onPress={handleDeleteAccount}
-                disabled={confirmDelete !== "DELETE ACCOUNT"} // disable unless typed correctly
-                className={`flex-1 p-4 ml-2 rounded-xl ${
-                  confirmDelete === "DELETE ACCOUNT" ? "bg-black" : "bg-gray-600"
-                }`}
+                className="flex-1 p-4 ml-2 bg-red-600 rounded-xl"
               >
                 <Text className="font-semibold text-center text-white">
                   Delete
@@ -395,11 +461,13 @@ const Profile = () => {
         </View>
       </Modal>
 
+
+
     </ScrollView>
   );
 };
 
-/* ---------------- COMPONENTS ---------------- */
+// COMPONENTS 
 const ProfileItem = ({
   icon,
   title,

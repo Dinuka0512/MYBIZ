@@ -1,5 +1,5 @@
-import { createUserWithEmailAndPassword, EmailAuthProvider, reauthenticateWithCredential, signInWithEmailAndPassword, updatePassword } from 'firebase/auth'
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { createUserWithEmailAndPassword, deleteUser, EmailAuthProvider, reauthenticateWithCredential, signInWithEmailAndPassword, updatePassword } from 'firebase/auth'
+import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { db,auth } from "../FierbaseConfig"
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
@@ -180,9 +180,44 @@ export const updateUserPassword = async (userId: string, oldPassword: string, ne
   }
 }
 
-export const accountPermenentlyDelete = async (userId: string, oldPassword: string, newPassword: string ) => {
-  try{
-    // Here I need to delete account permently 
+export const accountPermenentlyDelete = async (userId: string, password:string) => {
+  try {
+    const user = auth.currentUser;
+
+    if (!user || !user.email) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+
+    /* 1️⃣ RE-AUTHENTICATE USER */ 
+    const credential = EmailAuthProvider.credential(user.email, password); 
+    await reauthenticateWithCredential(user, credential);
+
+    /* 1️⃣ DELETE USER DATA FROM FIRESTORE */
+    await deleteDoc(doc(db, "Users", userId));
+
+    // If you have sub-collections, delete them too
+    // await deleteDoc(doc(db, "Orders", userId));
+    // await deleteDoc(doc(db, "Businesses", userId));
+
+    /* 2️⃣ DELETE USER FROM AUTH */
+    await deleteUser(user);
+
+    Alert.alert(
+      "Account Deleted",
+      "Your account has been permanently deleted"
+    );
   } catch (error: any) {
+    console.log("ACCOUNT DELETE ERROR:", error);
+
+    if (error.code === "auth/requires-recent-login") {
+      Alert.alert(
+        "Session Expired",
+        "Please log in again to delete your account"
+      );
+      return;
+    }
+
+    Alert.alert("Error", "Failed to delete account");
   }
-}
+};

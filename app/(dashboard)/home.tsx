@@ -33,8 +33,6 @@ export default function Home() {
     getUser();
   }, []);
 
-  console.log(userDetails);
-
   return (
     <ScrollView className="flex-1 px-6 pt-10 bg-gray-100">
 

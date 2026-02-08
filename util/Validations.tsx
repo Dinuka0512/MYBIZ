@@ -19,7 +19,7 @@ export class Validator {
     return intRegex.test(value);
   }
 
-  static isDouble(value: string): boolean {
+  static isDouble(value: any): boolean {
     const doubleRegex = /^-?\d*(\.\d+)?$/;
     return doubleRegex.test(value) && !isNaN(parseFloat(value));
   }

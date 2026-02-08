@@ -7,15 +7,18 @@ import {
   Modal,
   Alert,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Feather } from "@expo/vector-icons";
+import { saveCustomer, getAllCustomers } from "@/service/customerService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
+import { getAllUserData } from "@/service/authService";
+import { Validator } from "@/util/Validations";
 
 const Customer = () => {
   const [customers, setCustomers] = useState([
-    { id: "1", name: "Kamal Perera", phone: "077 123 4567", balance: "2500" },
-    { id: "2", name: "Nimali Silva", phone: "071 987 6543", balance: "0" },
-    { id: "3", name: "Ruwan Fernando", phone: "075 456 7890", balance: "1200" },
-  ]);
+    { id: "", name: "", phone: "", balance: "" },
+   ]);
 
   const [addModal, setAddModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
@@ -23,9 +26,34 @@ const Customer = () => {
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [customerBalance, setCustomerBalance] = useState("");
+  const [customerBalance, setCustomerBalance] = useState(0);
+  const [userDetails, setUserDetails] = useState("");
+  const [userId, setUserId] = useState("");
 
   const [activeCustomerId, setActiveCustomerId] = useState<string | null>(null);
+
+  // LOAD USER DATA
+  useEffect(() => {
+  const loadUserAndCustomers = async () => {
+    const stored = await AsyncStorage.getItem("userDetails");
+
+    if (!stored) {
+      router.replace("/login");
+      return;
+    }
+
+    const user = JSON.parse(stored);
+    setUserDetails(user);
+    setUserId(user.uid);
+
+    // 🔥 LOAD CUSTOMERS HERE
+    const customerList = await getAllCustomers(user.uid);
+    setCustomers(customerList);
+  };
+
+  loadUserAndCustomers();
+}, []);
+
 
   /* ---------------- ADD CUSTOMER ---------------- */
   const handleAddCustomer = () => {
@@ -33,30 +61,60 @@ const Customer = () => {
       Alert.alert("Error", "Name and phone are required");
       return;
     }
-    const newCustomer = {
-      id: Date.now().toString(),
-      name: customerName,
-      phone: customerPhone,
-      balance: customerBalance || "0",
-    };
-    setCustomers([...customers, newCustomer]);
-    setCustomerName("");
-    setCustomerPhone("");
-    setCustomerBalance("");
+
+    // Validate customer name
+    if (!Validator.isName(customerName)) {
+      Alert.alert(
+        "Invalid Name",
+        "Please enter a valid name (2-50 characters, letters, spaces and hyphens only)",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Validate customer phone
+    if (Validator.isMobile(customerPhone)) {
+      Alert.alert(
+        "Invalid Phone Number",
+        "Please enter a valid mobile number (e.g., 0771234567)",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Validate customer balance
+    if (!Validator.isDouble(String(customerBalance))) {
+      Alert.alert(
+        "Invalid Balance",
+        "Please enter a valid balance amount",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    
+    saveCustomer(userId, customerName, customerPhone, customerBalance);
+    resetSave();
     setAddModal(false);
   };
 
+  function resetSave(){
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerBalance(0);
+  }
+
+  
   /* ---------------- UPDATE CUSTOMER ---------------- */
   const handleUpdateCustomer = () => {
-    if (!selectedCustomer) return;
-    const updatedList = customers.map((c) =>
-      c.id === selectedCustomer.id
-        ? { ...c, name: customerName, phone: customerPhone, balance: customerBalance }
-        : c
-    );
-    setCustomers(updatedList);
-    setEditModal(false);
-    setSelectedCustomer(null);
+    // if (!selectedCustomer) return;
+    // const updatedList = customers.map((c) =>
+    //   c.id === selectedCustomer.id
+    //     ? { ...c, name: customerName, phone: customerPhone, balance: customerBalance }
+    //     : c
+    // );
+    // setCustomers(updatedList);
+    // setEditModal(false);
+    // setSelectedCustomer(null);
   };
 
   /* ---------------- DELETE CUSTOMER ---------------- */
@@ -64,6 +122,23 @@ const Customer = () => {
     const filtered = customers.filter((c) => c.id !== id);
     setCustomers(filtered);
     setActiveCustomerId(null); // close actions if open
+  };
+
+  // Handle balance input change
+  const handleBalanceChange = (text: string) => {
+    // Remove any non-numeric characters except decimal point and minus sign
+    const cleanedText = text.replace(/[^0-9.-]/g, '');
+    
+    // If empty string, set to 0
+    if (cleanedText === '' || cleanedText === '-') {
+      setCustomerBalance(0);
+    } else {
+      const numValue = Number(cleanedText);
+      // Check if it's a valid number
+      if (!isNaN(numValue)) {
+        setCustomerBalance(numValue);
+      }
+    }
   };
 
   return (
@@ -99,28 +174,32 @@ const Customer = () => {
       </View>
 
       {/* Customer List */}
-      {customers.map((c) => (
-        <CustomerCard
-          key={c.id}
-          id={c.id}
-          name={c.name}
-          phone={c.phone}
-          balance={c.balance}
-          isActive={activeCustomerId === c.id}
-          onPress={() =>
-            setActiveCustomerId(activeCustomerId === c.id ? null : c.id)
-          }
-          onEdit={() => {
-            setSelectedCustomer(c);
-            setCustomerName(c.name);
-            setCustomerPhone(c.phone);
-            setCustomerBalance(c.balance);
-            setEditModal(true);
-            setActiveCustomerId(null);
-          }}
-          onDelete={() => handleDeleteCustomer(c.id)}
-        />
-      ))}
+      <View className="mb-7">
+        {customers.map((c) => (
+          <CustomerCard
+            key={c.id}
+            id={c.id}
+            name={c.name}
+            phone={c.phone}
+            balance={c.balance}
+            isActive={activeCustomerId === c.id}
+            onPress={() =>
+              setActiveCustomerId(activeCustomerId === c.id ? null : c.id)
+            }
+            onEdit={() => {
+              setSelectedCustomer(c);
+              setCustomerName(c.name);
+              setCustomerPhone(c.phone);
+              // Convert balance string to number for editing
+              const balanceNum = Number(c.balance);
+              setCustomerBalance(isNaN(balanceNum) ? 0 : balanceNum);
+              setEditModal(true);
+              setActiveCustomerId(null);
+            }}
+            onDelete={() => handleDeleteCustomer(c.id)}
+          />
+        ))}
+      </View>
 
       {/* Add Customer Modal */}
       <Modal transparent animationType="slide" visible={addModal}>
@@ -142,16 +221,21 @@ const Customer = () => {
               className="p-4 mb-4 bg-gray-100 rounded-xl"
             />
             <TextInput
-              value={customerBalance}
-              onChangeText={setCustomerBalance}
+              value={customerBalance === 0 ? "" : String(customerBalance)}
+              onChangeText={handleBalanceChange}
               placeholder="Balance (optional)"
-              keyboardType="numeric"
+              keyboardType="number-pad"
               className="p-4 mb-6 bg-gray-100 rounded-xl"
             />
 
             <View className="flex-row">
               <TouchableOpacity
-                onPress={() => setAddModal(false)}
+                onPress={() => {
+                  setAddModal(false); 
+                  setCustomerName("");
+                  setCustomerPhone("");
+                  setCustomerBalance(0)
+                }}
                 className="flex-1 p-4 mr-2 bg-gray-100 rounded-xl"
               >
                 <Text className="text-center text-gray-600">Cancel</Text>
@@ -190,10 +274,10 @@ const Customer = () => {
               className="p-4 mb-4 bg-gray-100 rounded-xl"
             />
             <TextInput
-              value={customerBalance}
-              onChangeText={setCustomerBalance}
+              value={customerBalance === 0 ? "" : String(customerBalance)}
+              onChangeText={handleBalanceChange}
               placeholder="Balance"
-              keyboardType="numeric"
+              keyboardType="number-pad"
               className="p-4 mb-6 bg-gray-100 rounded-xl"
             />
 

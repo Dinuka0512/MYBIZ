@@ -2,7 +2,7 @@ import { View, Text, Image, TextInput, TouchableOpacity, ScrollView, Alert } fro
 import React, { useState } from 'react'
 import { router } from 'expo-router'
 import { login } from "../../service/authService"
-import { Validator } from '../../util/validations'
+import { Validator } from '../../util/Validations'
 // 1. Import Feather icons
 import { Feather } from '@expo/vector-icons';
 

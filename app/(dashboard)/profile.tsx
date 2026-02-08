@@ -23,7 +23,7 @@ import {
   updateUserPassword,
   accountPermenentlyDelete
 } from "@/service/authService";
-import { Validator } from "../../util/validations";
+import { Validator } from "../../util/Validations";
 
 const Profile = () => {
   const temparyUrl = "https://res.cloudinary.com/dgokbm0dx/image/upload/v1770408971/istockphoto-1695144958-612x612_jpzoft.jpg";

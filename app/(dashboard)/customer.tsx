@@ -8,7 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -27,7 +27,7 @@ const Customer = () => {
   const [searchText, setSearchText] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [addModal, setAddModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
@@ -58,6 +58,13 @@ const Customer = () => {
     };
 
     load();
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
   }, []);
 
   /* ---------------- DEBOUNCED SEARCH ---------------- */
@@ -65,8 +72,8 @@ const Customer = () => {
     setSearchText(text);
     
     // Clear previous timeout
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
 
     if (!text.trim()) {
@@ -82,13 +89,11 @@ const Customer = () => {
     setIsLoading(true);
     
     // Set a new timeout for debouncing (300ms delay)
-    const timeout = setTimeout(async () => {
+    searchTimeoutRef.current = setTimeout(async () => {
       const results = await searchCustomers(userId, text);
       setCustomers(results);
       setIsLoading(false);
     }, 300);
-
-    setSearchTimeout(timeout);
   };
 
   /* ---------------- REFRESH CUSTOMERS ---------------- */
@@ -256,7 +261,7 @@ const Customer = () => {
         </View>
       </View>
 
-      {/* Customer Count */}
+      {/* Search Results Count */}
       {searchText.trim() && (
         <View className="mb-3">
           <Text className="text-sm text-gray-600">
@@ -265,7 +270,7 @@ const Customer = () => {
         </View>
       )}
 
-      {/* Customer List - ALWAYS SHOW CARDS */}
+      {/* Customer List */}
       <View className="mb-6">
         {/* Loading State */}
         {isLoading ? (
@@ -275,7 +280,7 @@ const Customer = () => {
             <CustomerCardSkeleton />
           </>
         ) : customers.length > 0 ? (
-          // Show customers (empty search shows all, non-empty shows filtered)
+          // Show customers
           customers.map(c => (
             <CustomerCard
               key={c.id}
@@ -293,10 +298,10 @@ const Customer = () => {
           <View className="items-center justify-center py-10">
             <Feather name="users" size={50} color="#9CA3AF" />
             <Text className="mt-4 text-lg font-semibold text-gray-500">
-              No customers yet
+              {searchText.trim() ? 'No matching customers' : 'No customers yet'}
             </Text>
             <Text className="mt-2 text-gray-400">
-              Add your first customer to get started
+              {searchText.trim() ? 'Try a different search term' : 'Add your first customer to get started'}
             </Text>
           </View>
         )}
@@ -351,7 +356,7 @@ const Customer = () => {
                   Phone Number
                 </Text>
                 <TextInput
-                  placeholder="+94XXXXXXXXX"
+                  placeholder="077 123 4567"
                   value={customerPhone}
                   onChangeText={setCustomerPhone}
                   keyboardType="phone-pad"

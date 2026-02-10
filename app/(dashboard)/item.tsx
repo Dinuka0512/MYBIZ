@@ -9,6 +9,7 @@ const Item = () => {
     { id: "3", name: "Sugar", price: "Rs 220", stock: "90" },
   ]);
 
+  const [searchText, setSearchText] = useState("");
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [editModal, setEditModal] = useState(false);
   const [addModal, setAddModal] = useState(false);
@@ -78,13 +79,23 @@ const Item = () => {
       </TouchableOpacity>
 
       {/* Search */}
-      <View className="flex-row items-center p-4 mb-4 bg-white shadow-sm rounded-2xl">
-        <Feather name="search" size={18} color="#9ca3af" className="mr-2" />
+      <View className="flex-row items-center h-12 mb-4 overflow-hidden bg-white shadow-sm rounded-2xl">
+        
         <TextInput
-          placeholder="Search item name"
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="Search..."
           placeholderTextColor="#9ca3af"
-          className="flex-1 text-gray-900"
+          className="flex-1 h-full px-4 text-gray-900"
         />
+
+        <TouchableOpacity
+          // onPress={handleSearch}
+          className="items-center justify-center h-full px-4 bg-black"
+        >
+          <Feather name="search" size={18} color="white" />
+        </TouchableOpacity>
+
       </View>
 
       {/* Item List */}

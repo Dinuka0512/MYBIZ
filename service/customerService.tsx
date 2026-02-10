@@ -1,5 +1,17 @@
 import { db } from "@/FierbaseConfig";
-import { collection, doc, getDoc, getDocs, orderBy, query, setDoc } from "firebase/firestore";
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  orderBy, 
+  query, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc,
+  where,
+  QueryConstraint
+} from "firebase/firestore";
 import { Alert } from "react-native";
 
 export const saveCustomer = async (
@@ -14,20 +26,6 @@ export const saveCustomer = async (
   }
 
   try {
-    // 1. Reference the user document
-    const userRef = doc(db, "Users", userId);
-    const userSnap = await getDoc(userRef);
-
-    // Note: If you haven't created a document for the user in the "users" 
-    // collection yet, this check will fail. 
-    if (!userSnap.exists()) {
-       console.warn("User doc missing, creating customer anyway...");
-       // Optional: You can remove the 'return' here if you want to allow 
-       // saving customers even if the user profile doc doesn't exist yet.
-    }
-
-    // 2. Create the customer in the subcollection
-    // This creates the "customers" collection automatically if it doesn't exist
     const customerRef = doc(collection(db, "Users", userId, "customers"));
     
     await setDoc(customerRef, {
@@ -35,6 +33,7 @@ export const saveCustomer = async (
       phone: phone.trim(),
       balance: Number(balance) || 0,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
 
     Alert.alert("Success", "Customer saved successfully!");
@@ -44,6 +43,134 @@ export const saveCustomer = async (
   }
 };
 
+export const updateCustomer = async (
+  userId: string,
+  customerId: string,
+  updates: { name?: string; phone?: string; balance?: number }
+) => {
+  if (!userId || !customerId) {
+    Alert.alert("Error", "Missing required parameters.");
+    return false;
+  }
+
+  try {
+    const customerRef = doc(db, "Users", userId, "customers", customerId);
+    
+    await updateDoc(customerRef, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+
+    Alert.alert("Success", "Customer updated successfully!");
+    return true;
+  } catch (error: any) {
+    console.error("Firebase Update Error:", error.code, error.message);
+    Alert.alert("Error", "Failed to update customer.");
+    return false;
+  }
+};
+
+export const deleteCustomer = async (userId: string, customerId: string) => {
+  if (!userId || !customerId) {
+    Alert.alert("Error", "Missing required parameters.");
+    return false;
+  }
+
+  try {
+    const customerRef = doc(db, "Users", userId, "customers", customerId);
+    await deleteDoc(customerRef);
+    
+    Alert.alert("Success", "Customer deleted successfully!");
+    return true;
+  } catch (error: any) {
+    console.error("Firebase Delete Error:", error.code, error.message);
+    Alert.alert("Error", "Failed to delete customer.");
+    return false;
+  }
+};
+
+export const searchCustomers = async (
+  userId: string,
+  searchTerm: string
+): Promise<any[]> => {
+  if (!userId) {
+    Alert.alert("Error", "You must be logged in to search customers.");
+    return [];
+  }
+
+  if (!searchTerm.trim()) {
+    // If search is empty, return all customers
+    return getAllCustomers(userId);
+  }
+
+  try {
+    // Get all customers first
+    const allCustomers = await getAllCustomers(userId);
+    
+    // Convert search term to lowercase for case-insensitive comparison
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    // Fuzzy search: check if search term appears anywhere in name or phone
+    const filteredCustomers = allCustomers.filter(customer => {
+      // Check if name contains the search term (fuzzy matching)
+      const nameMatch = customer.name?.toLowerCase().includes(searchLower);
+      
+      // Check if phone contains the search term
+      const phoneMatch = customer.phone?.includes(searchTerm);
+      
+      // Check for partial matches (substring)
+      const partialNameMatch = searchLower.split(' ').some(word => 
+        customer.name?.toLowerCase().includes(word)
+      );
+      
+      // Check for initials or first letters
+      const initialsMatch = customer.name?.toLowerCase()
+        .split(' ')
+        .map((word: string) => word.charAt(0))
+        .join('')
+        .includes(searchLower);
+      
+      // Return true if any condition matches
+      return nameMatch || phoneMatch || partialNameMatch || initialsMatch;
+    });
+
+    // Sort by relevance (exact matches first, then partial matches)
+    const sortedResults = filteredCustomers.sort((a, b) => {
+      const aName = a.name?.toLowerCase() || '';
+      const bName = b.name?.toLowerCase() || '';
+      
+      // Exact match at start gets highest priority
+      if (aName.startsWith(searchLower) && !bName.startsWith(searchLower)) return -1;
+      if (!aName.startsWith(searchLower) && bName.startsWith(searchLower)) return 1;
+      
+      // Then exact match anywhere
+      if (aName.includes(searchLower) && !bName.includes(searchLower)) return -1;
+      if (!aName.includes(searchLower) && bName.includes(searchLower)) return 1;
+      
+      // Then alphabetically
+      return aName.localeCompare(bName);
+    });
+
+    return sortedResults;
+    
+  } catch (error: any) {
+    console.error("Search Error:", error);
+    
+    // Fallback: simple client-side filtering
+    const allCustomers = await getAllCustomers(userId);
+    return allCustomers.filter(customer => {
+      const name = customer.name?.toLowerCase() || '';
+      const phone = customer.phone || '';
+      const searchLower = searchTerm.toLowerCase();
+      
+      // Simple fuzzy matching
+      return name.includes(searchLower) || 
+             phone.includes(searchTerm) ||
+             searchLower.split('').every(char => name.includes(char)) ||
+             name.split(' ').some((word: string) => word.startsWith(searchLower));
+    });
+  }
+};
 
 export const getAllCustomers = async (userId: string) => {
   if (!userId) {
@@ -53,14 +180,9 @@ export const getAllCustomers = async (userId: string) => {
 
   try {
     const customersRef = collection(db, "Users", userId, "customers");
-    
-    // Create a query to get all customers, ordered by creation date (newest first)
     const customersQuery = query(customersRef, orderBy("createdAt", "desc"));
     
-    // Execute the query
     const querySnapshot = await getDocs(customersQuery);
-    
-    // Map the documents to an array of customer objects
     const customers: any[] = [];
     
     querySnapshot.forEach((doc) => {
@@ -69,12 +191,12 @@ export const getAllCustomers = async (userId: string) => {
         id: doc.id,
         name: customerData.name || "",
         phone: customerData.phone || "",
-        balance: customerData.balance ? String(customerData.balance) : "0",
+        balance: customerData.balance || 0,
         createdAt: customerData.createdAt || new Date().toISOString(),
+        updatedAt: customerData.updatedAt,
       });
     });
     
-    console.log(`Fetched ${customers.length} customers for user ${userId}`);
     return customers;
     
   } catch (error: any) {
@@ -89,5 +211,28 @@ export const getAllCustomers = async (userId: string) => {
     }
     
     return [];
+  }
+};
+
+export const getCustomerById = async (userId: string, customerId: string) => {
+  if (!userId || !customerId) {
+    return null;
+  }
+
+  try {
+    const customerRef = doc(db, "Users", userId, "customers", customerId);
+    const customerSnap = await getDoc(customerRef);
+    
+    if (customerSnap.exists()) {
+      return {
+        id: customerSnap.id,
+        ...customerSnap.data(),
+      };
+    }
+    
+    return null;
+  } catch (error: any) {
+    console.error("Error fetching customer:", error);
+    return null;
   }
 };

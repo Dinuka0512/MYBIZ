@@ -10,25 +10,30 @@ import {
   updateDoc, 
   deleteDoc,
   where,
-  QueryConstraint
+  increment
 } from "firebase/firestore";
 import { Alert } from "react-native";
 
+/* ================= CUSTOMER CRUD METHODS ================= */
+
+// Save new customer
 export const saveCustomer = async (
   userId: string,
   name: string,
   phone: string,
-  balance: number
+  balance: number = 0
 ) => {
   if (!userId) {
     Alert.alert("Error", "You must be logged in to save customers.");
-    return;
+    return null;
   }
 
   try {
     const customerRef = doc(collection(db, "Users", userId, "customers"));
+    const customerId = customerRef.id;
     
     await setDoc(customerRef, {
+      id: customerId,
       name: name.trim(),
       phone: phone.trim(),
       balance: Number(balance) || 0,
@@ -37,16 +42,19 @@ export const saveCustomer = async (
     });
 
     Alert.alert("Success", "Customer saved successfully!");
+    return customerId;
   } catch (error: any) {
     console.error("Firebase Error:", error.code, error.message);
     Alert.alert("Error", "Check your internet or permissions.");
+    return null;
   }
 };
 
+// Update customer details
 export const updateCustomer = async (
   userId: string,
   customerId: string,
-  updates: { name?: string; phone?: string; balance?: number }
+  updates: { name?: string; phone?: string }
 ) => {
   if (!userId || !customerId) {
     Alert.alert("Error", "Missing required parameters.");
@@ -70,6 +78,82 @@ export const updateCustomer = async (
   }
 };
 
+// Update customer balance (for payments and credits)
+export const updateCustomerBalance = async (
+  userId: string,
+  customerId: string,
+  amount: number, // Positive = add to balance (credit), Negative = subtract from balance (payment)
+  description?: string
+) => {
+  if (!userId || !customerId) {
+    Alert.alert("Error", "Missing required parameters.");
+    return false;
+  }
+
+  try {
+    const customerRef = doc(db, "Users", userId, "customers", customerId);
+    
+    // Get current balance first
+    const customerSnap = await getDoc(customerRef);
+    if (!customerSnap.exists()) {
+      Alert.alert("Error", "Customer not found.");
+      return false;
+    }
+
+    const currentData = customerSnap.data();
+    const currentBalance = currentData.balance || 0;
+    const newBalance = currentBalance + amount;
+
+    // Update customer balance
+    await updateDoc(customerRef, {
+      balance: newBalance,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Create transaction record
+    const transactionRef = doc(collection(db, "Users", userId, "customers", customerId, "transactions"));
+    await setDoc(transactionRef, {
+      amount: amount,
+      type: amount > 0 ? 'credit' : 'payment',
+      description: description || (amount > 0 ? 'Credit added' : 'Payment made'),
+      previousBalance: currentBalance,
+      newBalance: newBalance,
+      date: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    });
+
+    console.log(`Customer balance updated: ${currentBalance} → ${newBalance} (Change: ${amount})`);
+    return true;
+  } catch (error: any) {
+    console.error("Balance Update Error:", error.code, error.message);
+    Alert.alert("Error", "Failed to update customer balance.");
+    return false;
+  }
+};
+
+// Make payment (reduce balance)
+export const makePayment = async (
+  userId: string,
+  customerId: string,
+  amount: number,
+  description?: string
+) => {
+  // Payment reduces balance, so amount should be negative
+  return updateCustomerBalance(userId, customerId, -Math.abs(amount), description || 'Payment received');
+};
+
+// Add credit (increase balance)
+export const addCredit = async (
+  userId: string,
+  customerId: string,
+  amount: number,
+  description?: string
+) => {
+  // Credit increases balance, so amount should be positive
+  return updateCustomerBalance(userId, customerId, Math.abs(amount), description || 'Credit added');
+};
+
+// Delete customer
 export const deleteCustomer = async (userId: string, customerId: string) => {
   if (!userId || !customerId) {
     Alert.alert("Error", "Missing required parameters.");
@@ -89,6 +173,7 @@ export const deleteCustomer = async (userId: string, customerId: string) => {
   }
 };
 
+// Search customers
 export const searchCustomers = async (
   userId: string,
   searchTerm: string
@@ -98,80 +183,23 @@ export const searchCustomers = async (
     return [];
   }
 
+  const allCustomers = await getAllCustomers(userId);
+  
   if (!searchTerm.trim()) {
-    // If search is empty, return all customers
-    return getAllCustomers(userId);
+    return allCustomers;
   }
 
-  try {
-    // Get all customers first
-    const allCustomers = await getAllCustomers(userId);
+  const searchLower = searchTerm.toLowerCase().trim();
+  
+  return allCustomers.filter(customer => {
+    const nameMatch = customer.name?.toLowerCase().includes(searchLower);
+    const phoneMatch = customer.phone?.includes(searchTerm);
     
-    // Convert search term to lowercase for case-insensitive comparison
-    const searchLower = searchTerm.toLowerCase().trim();
-    
-    // Fuzzy search: check if search term appears anywhere in name or phone
-    const filteredCustomers = allCustomers.filter(customer => {
-      // Check if name contains the search term (fuzzy matching)
-      const nameMatch = customer.name?.toLowerCase().includes(searchLower);
-      
-      // Check if phone contains the search term
-      const phoneMatch = customer.phone?.includes(searchTerm);
-      
-      // Check for partial matches (substring)
-      const partialNameMatch = searchLower.split(' ').some(word => 
-        customer.name?.toLowerCase().includes(word)
-      );
-      
-      // Check for initials or first letters
-      const initialsMatch = customer.name?.toLowerCase()
-        .split(' ')
-        .map((word: string) => word.charAt(0))
-        .join('')
-        .includes(searchLower);
-      
-      // Return true if any condition matches
-      return nameMatch || phoneMatch || partialNameMatch || initialsMatch;
-    });
-
-    // Sort by relevance (exact matches first, then partial matches)
-    const sortedResults = filteredCustomers.sort((a, b) => {
-      const aName = a.name?.toLowerCase() || '';
-      const bName = b.name?.toLowerCase() || '';
-      
-      // Exact match at start gets highest priority
-      if (aName.startsWith(searchLower) && !bName.startsWith(searchLower)) return -1;
-      if (!aName.startsWith(searchLower) && bName.startsWith(searchLower)) return 1;
-      
-      // Then exact match anywhere
-      if (aName.includes(searchLower) && !bName.includes(searchLower)) return -1;
-      if (!aName.includes(searchLower) && bName.includes(searchLower)) return 1;
-      
-      // Then alphabetically
-      return aName.localeCompare(bName);
-    });
-
-    return sortedResults;
-    
-  } catch (error: any) {
-    console.error("Search Error:", error);
-    
-    // Fallback: simple client-side filtering
-    const allCustomers = await getAllCustomers(userId);
-    return allCustomers.filter(customer => {
-      const name = customer.name?.toLowerCase() || '';
-      const phone = customer.phone || '';
-      const searchLower = searchTerm.toLowerCase();
-      
-      // Simple fuzzy matching
-      return name.includes(searchLower) || 
-             phone.includes(searchTerm) ||
-             searchLower.split('').every(char => name.includes(char)) ||
-             name.split(' ').some((word: string) => word.startsWith(searchLower));
-    });
-  }
+    return nameMatch || phoneMatch;
+  });
 };
 
+// Get all customers
 export const getAllCustomers = async (userId: string) => {
   if (!userId) {
     Alert.alert("Error", "You must be logged in to fetch customers.");
@@ -214,6 +242,7 @@ export const getAllCustomers = async (userId: string) => {
   }
 };
 
+// Get customer by ID
 export const getCustomerById = async (userId: string, customerId: string) => {
   if (!userId || !customerId) {
     return null;
@@ -224,9 +253,14 @@ export const getCustomerById = async (userId: string, customerId: string) => {
     const customerSnap = await getDoc(customerRef);
     
     if (customerSnap.exists()) {
+      const data = customerSnap.data();
       return {
         id: customerSnap.id,
-        ...customerSnap.data(),
+        name: data.name || "",
+        phone: data.phone || "",
+        balance: data.balance || 0,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
       };
     }
     
@@ -234,5 +268,39 @@ export const getCustomerById = async (userId: string, customerId: string) => {
   } catch (error: any) {
     console.error("Error fetching customer:", error);
     return null;
+  }
+};
+
+// Get customer transactions
+export const getCustomerTransactions = async (userId: string, customerId: string) => {
+  if (!userId || !customerId) {
+    return [];
+  }
+
+  try {
+    const transactionsRef = collection(db, "Users", userId, "customers", customerId, "transactions");
+    const transactionsQuery = query(transactionsRef, orderBy("date", "desc"));
+    
+    const querySnapshot = await getDocs(transactionsQuery);
+    const transactions: any[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const transactionData = doc.data();
+      transactions.push({
+        id: doc.id,
+        amount: transactionData.amount || 0,
+        type: transactionData.type || 'credit',
+        description: transactionData.description || '',
+        previousBalance: transactionData.previousBalance || 0,
+        newBalance: transactionData.newBalance || 0,
+        date: transactionData.date,
+        createdAt: transactionData.createdAt,
+      });
+    });
+    
+    return transactions;
+  } catch (error: any) {
+    console.error("Error fetching transactions:", error);
+    return [];
   }
 };

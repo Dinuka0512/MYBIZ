@@ -9,11 +9,13 @@ import {
   setDoc, 
   updateDoc, 
   deleteDoc,
-  where,
-  QueryConstraint
+  where
 } from "firebase/firestore";
 import { Alert } from "react-native";
 
+/* ================= ITEM CRUD METHODS ================= */
+
+// Save new item
 export const saveItem = async (
   userId: string,
   name: string,
@@ -23,13 +25,15 @@ export const saveItem = async (
 ) => {
   if (!userId) {
     Alert.alert("Error", "You must be logged in to save items.");
-    return;
+    return null;
   }
 
   try {
     const itemRef = doc(collection(db, "Users", userId, "items"));
+    const itemId = itemRef.id;
     
     await setDoc(itemRef, {
+      id: itemId,
       name: name.trim(),
       description: description.trim(),
       price: Number(price) || 0,
@@ -39,12 +43,15 @@ export const saveItem = async (
     });
 
     Alert.alert("Success", "Item saved successfully!");
+    return itemId;
   } catch (error: any) {
     console.error("Firebase Error:", error.code, error.message);
     Alert.alert("Error", "Check your internet or permissions.");
+    return null;
   }
 };
 
+// Update item
 export const updateItem = async (
   userId: string,
   itemId: string,
@@ -72,6 +79,49 @@ export const updateItem = async (
   }
 };
 
+// Update item quantity (for stock management)
+export const updateItemQuantity = async (
+  userId: string,
+  itemId: string,
+  quantityChange: number // Positive = add stock, Negative = reduce stock
+) => {
+  if (!userId || !itemId) {
+    Alert.alert("Error", "Missing required parameters.");
+    return false;
+  }
+
+  try {
+    const itemRef = doc(db, "Users", userId, "items", itemId);
+    const itemSnap = await getDoc(itemRef);
+    
+    if (!itemSnap.exists()) {
+      Alert.alert("Error", "Item not found.");
+      return false;
+    }
+
+    const currentData = itemSnap.data();
+    const currentQuantity = currentData.quantity || 0;
+    const newQuantity = currentQuantity + quantityChange;
+
+    if (newQuantity < 0) {
+      Alert.alert("Error", "Insufficient stock.");
+      return false;
+    }
+
+    await updateDoc(itemRef, {
+      quantity: newQuantity,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return true;
+  } catch (error: any) {
+    console.error("Update Quantity Error:", error.code, error.message);
+    Alert.alert("Error", "Failed to update item quantity.");
+    return false;
+  }
+};
+
+// Delete item
 export const deleteItem = async (userId: string, itemId: string) => {
   if (!userId || !itemId) {
     Alert.alert("Error", "Missing required parameters.");
@@ -91,6 +141,7 @@ export const deleteItem = async (userId: string, itemId: string) => {
   }
 };
 
+// Search items
 export const searchItems = async (
   userId: string,
   searchTerm: string
@@ -100,90 +151,23 @@ export const searchItems = async (
     return [];
   }
 
+  const allItems = await getAllItems(userId);
+  
   if (!searchTerm.trim()) {
-    // If search is empty, return all items
-    return getAllItems(userId);
+    return allItems;
   }
 
-  try {
-    // Get all items first
-    const allItems = await getAllItems(userId);
+  const searchLower = searchTerm.toLowerCase().trim();
+  
+  return allItems.filter(item => {
+    const nameMatch = item.name?.toLowerCase().includes(searchLower);
+    const descMatch = item.description?.toLowerCase().includes(searchLower);
     
-    // Convert search term to lowercase for case-insensitive comparison
-    const searchLower = searchTerm.toLowerCase().trim();
-    
-    // Fuzzy search: check if search term appears anywhere in name or description
-    const filteredItems = allItems.filter(item => {
-      // Check if name contains the search term
-      const nameMatch = item.name?.toLowerCase().includes(searchLower);
-      
-      // Check if description contains the search term
-      const descMatch = item.description?.toLowerCase().includes(searchLower);
-      
-      // Check for partial matches (substring)
-      const partialNameMatch = searchLower.split(' ').some(word => 
-        item.name?.toLowerCase().includes(word)
-      );
-      
-      // Check for initials or first letters
-      const initialsMatch = item.name?.toLowerCase()
-        .split(' ')
-        .map((word: string) => word.charAt(0))
-        .join('')
-        .includes(searchLower);
-      
-      // Check price as string
-      const priceMatch = item.price?.toString().includes(searchTerm);
-      
-      // Check quantity as string
-      const qtyMatch = item.quantity?.toString().includes(searchTerm);
-      
-      // Return true if any condition matches
-      return nameMatch || descMatch || partialNameMatch || initialsMatch || priceMatch || qtyMatch;
-    });
-
-    // Sort by relevance (exact matches first, then partial matches)
-    const sortedResults = filteredItems.sort((a, b) => {
-      const aName = a.name?.toLowerCase() || '';
-      const bName = b.name?.toLowerCase() || '';
-      
-      // Exact match at start gets highest priority
-      if (aName.startsWith(searchLower) && !bName.startsWith(searchLower)) return -1;
-      if (!aName.startsWith(searchLower) && bName.startsWith(searchLower)) return 1;
-      
-      // Then exact match anywhere
-      if (aName.includes(searchLower) && !bName.includes(searchLower)) return -1;
-      if (!aName.includes(searchLower) && bName.includes(searchLower)) return 1;
-      
-      // Then alphabetically
-      return aName.localeCompare(bName);
-    });
-
-    return sortedResults;
-    
-  } catch (error: any) {
-    console.error("Search Error:", error);
-    
-    // Fallback: simple client-side filtering
-    const allItems = await getAllItems(userId);
-    return allItems.filter(item => {
-      const name = item.name?.toLowerCase() || '';
-      const description = item.description?.toLowerCase() || '';
-      const price = item.price?.toString() || '';
-      const quantity = item.quantity?.toString() || '';
-      const searchLower = searchTerm.toLowerCase();
-      
-      // Simple fuzzy matching
-      return name.includes(searchLower) || 
-             description.includes(searchLower) ||
-             price.includes(searchTerm) ||
-             quantity.includes(searchTerm) ||
-             searchLower.split('').every(char => name.includes(char)) ||
-             name.split(' ').some((word: string) => word.startsWith(searchLower));
-    });
-  }
+    return nameMatch || descMatch;
+  });
 };
 
+// Get all items
 export const getAllItems = async (userId: string) => {
   if (!userId) {
     Alert.alert("Error", "You must be logged in to fetch items.");
@@ -227,6 +211,7 @@ export const getAllItems = async (userId: string) => {
   }
 };
 
+// Get item by ID
 export const getItemById = async (userId: string, itemId: string) => {
   if (!userId || !itemId) {
     return null;
@@ -237,9 +222,15 @@ export const getItemById = async (userId: string, itemId: string) => {
     const itemSnap = await getDoc(itemRef);
     
     if (itemSnap.exists()) {
+      const data = itemSnap.data();
       return {
         id: itemSnap.id,
-        ...itemSnap.data(),
+        name: data.name || "",
+        description: data.description || "",
+        price: data.price || 0,
+        quantity: data.quantity || 0,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
       };
     }
     

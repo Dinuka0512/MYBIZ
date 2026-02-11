@@ -1,17 +1,22 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import {getFirestore} from "firebase/firestore"
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
+// Direct Firebase config (no .env)
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-}; 
+  apiKey: "AIzaSyDubdwHGYJZq6tztF4IeYDk38E3A-FQgQA",
+  authDomain: "mybiz-universal-shop-manager.firebaseapp.com",
+  projectId: "mybiz-universal-shop-manager",
+  storageBucket: "mybiz-universal-shop-manager.firebasestorage.app",
+  messagingSenderId: "769741315723",
+  appId: "1:769741315723:web:a43219d7230b347e85fe8e",
+  measurementId: "G-DXYHR06QBW",
+};
 
-const app = initializeApp(firebaseConfig);
+// Prevent re-initialization in Expo
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);

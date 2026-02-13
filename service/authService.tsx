@@ -223,3 +223,18 @@ export const accountPermenentlyDelete = async (userId: string, password:string) 
     Alert.alert("Error", "Failed to delete account");
   }
 };
+
+// Add this function to your authService.ts
+export const updateUserContact = async (userId: string, phone: string) => {
+  try {
+    const userRef = doc(db, "Users", userId);
+    await updateDoc(userRef, {
+      phone: phone,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (error) {
+    console.error("Error updating contact:", error);
+    throw error;
+  }
+};

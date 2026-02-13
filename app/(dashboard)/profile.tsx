@@ -21,6 +21,7 @@ import {
   updateUserName,
   getAllUserData,
   updateUserPassword,
+  updateUserContact,
   accountPermenentlyDelete
 } from "@/service/authService";
 import { Validator } from "../../util/Validations";
@@ -29,12 +30,15 @@ const Profile = () => {
   const temparyUrl = "https://res.cloudinary.com/dgokbm0dx/image/upload/v1770408971/istockphoto-1695144958-612x612_jpzoft.jpg";
   const [name, setName] = useState("Sample User");
   const [tempName, setTempName] = useState("");
+  const [contact, setContact] = useState("");
+  const [tempContact, setTempContact] = useState("");
   const [profileImage, setProfileImage] = useState(temparyUrl);
   
   const [email, setEmail] = useState("");
   const [userDetails, setUserDetails] = useState<any>(null);
 
   const [editModal, setEditModal] = useState(false);
+  const [editContactModal, setEditContactModal] = useState(false);
   const [passwordModal, setPasswordModal] = useState(false);
   const [deletecModal, setDeletecModal] = useState(false);
 
@@ -49,6 +53,24 @@ const Profile = () => {
   const [confirmDelete, setConfirmDelete] = useState("");
   const [deleteModal, setDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+
+  // Format phone for display (shows with +94)
+  const formatPhoneDisplay = (phone: string) => {
+    if (!phone) return '';
+    if (phone.startsWith('94')) {
+      return '+94 ' + phone.substring(2).replace(/(\d{2})(\d{3})(\d{4})/, '$1 $2 $3');
+    }
+    return phone;
+  };
+
+  // Validate phone number
+  const validatePhoneNumber = (phone: string) => {
+    if (!phone) return true; // Optional field
+    // Sri Lankan mobile: 94 followed by 9 digits (starting with 7)
+    const sriLankanPhoneRegex = /^94[7][0-9]{8}$/;
+    return sriLankanPhoneRegex.test(phone);
+  };
 
   // IMAGE UPDATE 
   const pickImage = async () => {
@@ -94,6 +116,32 @@ const Profile = () => {
     }
   };
 
+  //  CONTACT UPDATE
+  const handleContactUpdate = async () => {
+    if (!tempContact) {
+      Alert.alert("Error", "Please enter a phone number");
+      return;
+    }
+
+    if (!validatePhoneNumber(tempContact)) {
+      Alert.alert(
+        "Invalid Phone Number",
+        "Please enter a valid Sri Lankan phone number (e.g., 94XXXXXXXXX)"
+      );
+      return;
+    }
+
+    try {
+      await updateUserContact(userDetails.uid, tempContact);
+      setContact(tempContact);
+      setEditContactModal(false);
+      refreshUser();
+      Alert.alert("Success", "Contact information updated successfully");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Contact update failed");
+    }
+  };
+
   //  PASSWORD UPDATE
   const handlePasswordUpdate = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
@@ -117,6 +165,7 @@ const Profile = () => {
       setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      Alert.alert("Success", "Password updated successfully");
     } catch (error: any) {
       Alert.alert("Error", error.message || "Password update failed");
     }
@@ -138,7 +187,6 @@ const Profile = () => {
     Alert.alert("Error", error.message || "Failed to delete account");
   }
 };
-
 
   // REFRESH USER
   const refreshUser = async () => {
@@ -162,6 +210,7 @@ const Profile = () => {
 
       setUserDetails(user);
       setName(user.name);
+      setContact(user.phone || "");
       setProfileImage(user?.profileImage || temparyUrl);
       setEmail(authData.email);
     };
@@ -177,7 +226,7 @@ const Profile = () => {
         <View className="p-5 bg-white shadow-sm rounded-2xl">
           <View className="flex-row items-center justify-between">
             
-            {/* Left side: Profile image + name/email */}
+            {/* Left side: Profile image + name/email/contact */}
             <View className="flex-row items-center">
               <View className="relative">
                 <Image
@@ -195,7 +244,11 @@ const Profile = () => {
               <View className="ml-4">
                 <Text className="text-xl font-semibold text-gray-900">{name}</Text>
                 <Text className="mt-1 text-sm text-gray-500">{email}</Text>
-                <Text className="mt-1 text-xs text-gray-400">Business Owner</Text>
+                {contact ? (
+                  <Text className="mt-1 text-xs text-gray-400">{formatPhoneDisplay(contact)}</Text>
+                ) : (
+                  <Text className="mt-1 text-xs italic text-gray-400">No phone added</Text>
+                )}
               </View>
             </View>
 
@@ -223,6 +276,14 @@ const Profile = () => {
             onPress={() => {
               setTempName(name);
               setEditModal(true);
+            }}
+          />
+          <ProfileItem
+            icon="phone"
+            title="Edit Contact Info"
+            onPress={() => {
+              setTempContact(contact);
+              setEditContactModal(true);
             }}
           />
           <ProfileItem
@@ -262,6 +323,7 @@ const Profile = () => {
             <Text className="mb-4 text-lg font-semibold">Edit Profile</Text>
 
             <TextInput
+              value={tempName}
               onChangeText={setTempName}
               className="p-4 mb-6 bg-gray-100 rounded-xl"
               placeholder="Enter your name"
@@ -277,6 +339,76 @@ const Profile = () => {
 
               <TouchableOpacity
                 onPress={handleUpdate}
+                className="flex-1 p-4 ml-2 bg-gray-900 rounded-xl"
+              >
+                <Text className="font-semibold text-center text-white">
+                  Save
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* EDIT CONTACT */}
+      <Modal transparent animationType="slide" visible={editContactModal}>
+        <View className="justify-end flex-1 bg-black/40">
+          <View className="p-6 bg-white rounded-t-2xl">
+            <Text className="mb-4 text-lg font-semibold">Edit Contact Info</Text>
+            
+            <Text className="mb-2 text-xs text-gray-500">Sri Lankan Phone Number</Text>
+            
+            <View className="mb-2">
+              <TextInput
+                placeholder="94XXXXXXXXX"
+                value={tempContact}
+                onChangeText={(text) => {
+                  // Remove all non-numeric characters
+                  let cleaned = text.replace(/[^0-9]/g, '');
+                  
+                  // Handle Sri Lankan phone number format
+                  if (cleaned.startsWith('94')) {
+                    cleaned = cleaned.substring(0, 11);
+                  } else if (cleaned.startsWith('0')) {
+                    cleaned = '94' + cleaned.substring(1, 10);
+                  } else {
+                    cleaned = '94' + cleaned.substring(0, 9);
+                  }
+                  
+                  setTempContact(cleaned);
+                }}
+                keyboardType="phone-pad"
+                maxLength={11}
+                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-base focus:border-gray-400"
+              />
+            </View>
+            
+            {/* Preview of formatted number */}
+            {tempContact && (
+              <View className="p-3 mb-4 rounded-lg bg-blue-50">
+                <Text className="text-xs text-blue-800">
+                  Preview: {formatPhoneDisplay(tempContact)}
+                </Text>
+              </View>
+            )}
+            
+            <Text className="mb-4 text-xs text-gray-500">
+              Format: 94 XX XXX XXXX (e.g., 94 77 123 4567)
+            </Text>
+
+            <View className="flex-row">
+              <TouchableOpacity
+                onPress={() => {
+                  setEditContactModal(false);
+                  setTempContact(contact);
+                }}
+                className="flex-1 p-4 mr-2 bg-gray-100 rounded-xl"
+              >
+                <Text className="text-center text-gray-600">Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleContactUpdate}
                 className="flex-1 p-4 ml-2 bg-gray-900 rounded-xl"
               >
                 <Text className="font-semibold text-center text-white">
@@ -350,7 +482,7 @@ const Profile = () => {
                 className="flex-1 p-4 ml-2 bg-gray-900 rounded-xl"
               >
                 <Text className="font-semibold text-center text-white">
-                  Save
+                  Update
                 </Text>
               </TouchableOpacity>
             </View>
@@ -359,7 +491,7 @@ const Profile = () => {
       </Modal>
 
 
-      {/* DELETE ACCOUNT*/}
+      {/* DELETE ACCOUNT CONFIRMATION */}
       <Modal transparent animationType="slide" visible={deleteModal}>
         <View className="justify-end flex-1 bg-black/40">
           <View className="p-6 bg-white rounded-3xl">
@@ -408,7 +540,7 @@ const Profile = () => {
       </Modal>
 
 
-      {/* DELETE ACCOUNT CONFIRM  */}
+      {/* DELETE ACCOUNT PASSWORD CONFIRM */}
       <Modal transparent animationType="slide" visible={deletecModal}>
         <View className="justify-center flex-1 bg-black/40">
           <View className="p-6 mx-6 bg-white rounded-2xl">
@@ -425,15 +557,15 @@ const Profile = () => {
                 value={deletePassword}
                 onChangeText={setDeletePassword}
                 placeholder="Enter your password"
-                secureTextEntry={!showOldPassword}
+                secureTextEntry={!showDeletePassword}
                 className="flex-1 p-4"
               />
               <TouchableOpacity
-                onPress={() => setShowOldPassword(!showOldPassword)}
+                onPress={() => setShowDeletePassword(!showDeletePassword)}
                 className="p-2"
               >
                 <Feather
-                  name={showOldPassword ? "eye" : "eye-off"}
+                  name={showDeletePassword ? "eye" : "eye-off"}
                   size={20}
                   color="#4B5563"
                 />
@@ -453,15 +585,13 @@ const Profile = () => {
                 className="flex-1 p-4 ml-2 bg-red-600 rounded-xl"
               >
                 <Text className="font-semibold text-center text-white">
-                  Delete
+                  Delete Account
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
-
 
     </ScrollView>
   );

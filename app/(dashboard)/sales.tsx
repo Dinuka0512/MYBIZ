@@ -8,11 +8,15 @@ import {
   Alert,
   FlatList,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import React, { useState, useEffect, useRef } from "react";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as MailComposer from 'expo-mail-composer';
 
 // Import services
 import { getAllCustomers } from "@/service/customerService";
@@ -41,7 +45,19 @@ const sales = () => {
   // Modals
   const [customerModal, setCustomerModal] = useState(false);
   const [addItemModal, setAddItemModal] = useState(false);
+  const [pdfOptionsModal, setPdfOptionsModal] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
+
+  // PDF Data
+  const [lastGeneratedPDF, setLastGeneratedPDF] = useState<{
+    uri: string;
+    cloudinaryUrl: string;
+    orderId: string;
+  } | null>(null);
+
+  // Email State
+  const [emailAddress, setEmailAddress] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // States for new item
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -50,8 +66,6 @@ const sales = () => {
 
   // Loading states
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
-  const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   
   // Refs
@@ -245,6 +259,68 @@ const sales = () => {
     setItemSearch("");
   };
 
+  /* ---------------- PDF OPTIONS ---------------- */
+  const handleOpenPDF = () => {
+    if (lastGeneratedPDF) {
+      Linking.openURL(lastGeneratedPDF.cloudinaryUrl).catch(() => {
+        Alert.alert("Error", "Could not open PDF");
+      });
+    }
+  };
+
+  const handlePrintPDF = async () => {
+    if (lastGeneratedPDF) {
+      try {
+        await Print.printAsync({ uri: lastGeneratedPDF.uri });
+      } catch (error) {
+        Alert.alert("Error", "Could not print PDF");
+      }
+    }
+  };
+
+  const handleSharePDF = async () => {
+    if (lastGeneratedPDF && await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(lastGeneratedPDF.uri, {
+        dialogTitle: 'Share Invoice',
+        mimeType: 'application/pdf',
+      });
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailAddress || !emailAddress.includes('@')) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return;
+    }
+
+    if (!lastGeneratedPDF) return;
+
+    setIsSendingEmail(true);
+    try {
+      const isAvailable = await MailComposer.isAvailableAsync();
+      
+      if (!isAvailable) {
+        Alert.alert("Error", "Email is not available on this device");
+        return;
+      }
+
+      await MailComposer.composeAsync({
+        recipients: [emailAddress],
+        subject: `Invoice #${lastGeneratedPDF.orderId}`,
+        body: `Dear ${selectedCustomer?.name},\n\nPlease find attached your invoice #${lastGeneratedPDF.orderId}.\n\nThank you for your business!`,
+        attachments: [lastGeneratedPDF.uri],
+      });
+
+      setEmailAddress("");
+      Alert.alert("Success", "Email client opened with attachment");
+    } catch (error) {
+      console.error("Email error:", error);
+      Alert.alert("Error", "Failed to open email client");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   /* ---------------- PLACE ORDER ---------------- */
   const handlePlaceOrder = async () => {
     if (!selectedCustomer) {
@@ -347,28 +423,19 @@ const sales = () => {
                 // Generate PDF and upload to Cloudinary
                 const result = await generateAndUploadPDF(saleData);
                 
-                if (result.success) {
-                  console.log('PDF uploaded to Cloudinary:', result.cloudinaryUrl);
+                if (result.success && result.localUri && result.cloudinaryUrl) {
+                  setLastGeneratedPDF({
+                    uri: result.localUri,
+                    cloudinaryUrl: result.cloudinaryUrl,
+                    orderId: orderId
+                  });
                   
-                  const successMessage = paymentMethod === 'cash'
-                    ? `Order #${orderId} placed successfully!\nInvoice saved to cloud.\nCash payment of Rs ${total.toFixed(2)} received.`
-                    : paymentMethod === 'credit'
-                    ? `Order #${orderId} placed!\nInvoice saved to cloud.\nCustomer owes Rs ${dueAmount.toFixed(2)}`
-                    : `Order #${orderId} placed!\nInvoice saved to cloud.\nPaid: Rs ${paidAmount.toFixed(2)}, Due: Rs ${dueAmount.toFixed(2)}`;
+                  // Show PDF options modal
+                  setPdfOptionsModal(true);
                   
-                  Alert.alert(
-                    "Success", 
-                    successMessage,
-                    [
-                      { 
-                        text: "OK", 
-                        onPress: async () => {
-                          resetForm();
-                          await loadData();
-                        }
-                      }
-                    ]
-                  );
+                  // Reset form but keep PDF data
+                  resetForm();
+                  await loadData();
                 } else {
                   Alert.alert(
                     "Success", 
@@ -416,297 +483,405 @@ const sales = () => {
   }
 
   return (
-    <ScrollView className="flex-1 px-6 pt-10 bg-gray-100" showsVerticalScrollIndicator={false}>
-      {/* Customer Selection Card */}
-      <View className="p-4 mb-4 bg-white shadow-sm rounded-2xl">
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-lg font-semibold text-gray-800">Customer</Text>
-          <TouchableOpacity
-            onPress={() => setCustomerModal(true)}
-            className="flex-row items-center px-3 py-2 bg-gray-100 rounded-lg"
-            activeOpacity={0.8}
-          >
-            <Feather name="user-plus" size={16} color="#4B5563" />
-            <Text className="ml-2 text-sm font-medium text-gray-700">
-              {selectedCustomer ? "Change" : "Select Customer"}
-            </Text>
-          </TouchableOpacity>
+    <View className="flex-1 bg-gray-100">
+      <ScrollView className="flex-1 px-6 pt-10" showsVerticalScrollIndicator={false}>
+        {/* Customer Selection Card */}
+        <View className="p-4 mb-4 bg-white shadow-sm rounded-2xl">
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-lg font-semibold text-gray-800">Customer</Text>
+            <TouchableOpacity
+              onPress={() => setCustomerModal(true)}
+              className="flex-row items-center px-3 py-2 bg-gray-100 rounded-lg"
+              activeOpacity={0.8}
+            >
+              <Feather name="user-plus" size={16} color="#4B5563" />
+              <Text className="ml-2 text-sm font-medium text-gray-700">
+                {selectedCustomer ? "Change" : "Select Customer"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {selectedCustomer ? (
+            <View className="p-3 bg-gray-50 rounded-xl">
+              <View className="flex-row justify-between">
+                <View>
+                  <Text className="font-semibold text-gray-900">{selectedCustomer.name}</Text>
+                  <Text className="text-sm text-gray-500">{selectedCustomer.phone}</Text>
+                  {selectedCustomer.balance > 0 && (
+                    <Text className="mt-1 text-sm text-orange-600">
+                      Current Balance: Rs {selectedCustomer.balance.toFixed(2)}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={() => setSelectedCustomer(null)}
+                  className="p-1"
+                  activeOpacity={0.7}
+                >
+                  <Feather name="x" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View className="items-center justify-center py-4">
+              <Feather name="user" size={32} color="#9CA3AF" />
+              <Text className="mt-2 text-gray-500">No customer selected</Text>
+              <Text className="text-sm text-gray-400">Tap "Select Customer" to choose</Text>
+            </View>
+          )}
         </View>
 
-        {selectedCustomer ? (
-          <View className="p-3 bg-gray-50 rounded-xl">
-            <View className="flex-row justify-between">
-              <View>
-                <Text className="font-semibold text-gray-900">{selectedCustomer.name}</Text>
-                <Text className="text-sm text-gray-500">{selectedCustomer.phone}</Text>
-                {selectedCustomer.balance > 0 && (
-                  <Text className="mt-1 text-sm text-orange-600">
-                    Current Balance: Rs {selectedCustomer.balance.toFixed(2)}
-                  </Text>
-                )}
-              </View>
+        {/* Order Items Section */}
+        <View className="p-4 mb-4 bg-white shadow-sm rounded-2xl">
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-lg font-semibold text-gray-800">Order Items</Text>
+            <TouchableOpacity
+              onPress={() => setAddItemModal(true)}
+              className="flex-row items-center px-4 py-2 bg-gray-800 rounded-lg"
+              activeOpacity={0.8}
+            >
+              <Feather name="plus" size={16} color="white" />
+              <Text className="ml-2 text-sm font-semibold text-white">Add Item</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Cart Items List */}
+          {orderItems.length > 0 ? (
+            <View className="mb-4">
+              {orderItems.map((item, index) => (
+                <CartItemCard
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  onUpdateQuantity={updateCartItemQuantity}
+                  onRemove={removeCartItem}
+                />
+              ))}
+              
               <TouchableOpacity
-                onPress={() => setSelectedCustomer(null)}
-                className="p-1"
+                onPress={handleClearCart}
+                className="flex-row items-center justify-center py-2 mt-2 rounded-lg bg-red-50"
                 activeOpacity={0.7}
               >
-                <Feather name="x" size={18} color="#9CA3AF" />
+                <Feather name="trash-2" size={16} color="#DC2626" />
+                <Text className="ml-2 text-sm font-medium text-red-600">Clear All Items</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="items-center justify-center py-6">
+              <Feather name="shopping-bag" size={40} color="#D1D5DB" />
+              <Text className="mt-3 text-lg font-medium text-gray-400">Cart is Empty</Text>
+              <Text className="mt-1 text-gray-400">Add items to create an order</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Order Summary Section */}
+        <View className="p-4 mb-4 bg-white shadow-sm rounded-2xl">
+          <Text className="mb-4 text-lg font-semibold text-gray-800">Order Summary</Text>
+          
+          {/* Subtotal */}
+          <View className="flex-row justify-between py-2">
+            <Text className="text-gray-600">Subtotal</Text>
+            <Text className="font-medium">Rs {subTotal.toFixed(2)}</Text>
+          </View>
+
+          {/* Discount */}
+          <View className="flex-row justify-between py-2">
+            <Text className="text-gray-600">Discount</Text>
+            <View className="flex-row items-center">
+              <TextInput
+                value={discount ? String(discount) : ""}
+                onChangeText={t => setDiscount(Number(t) || 0)}
+                placeholder="0"
+                keyboardType="numeric"
+                className="w-20 font-medium text-right"
+              />
+              <Text className="ml-1 text-gray-400">Rs</Text>
+            </View>
+          </View>
+
+          {/* Divider */}
+          <View className="my-2 border-t border-gray-200" />
+
+          {/* Total */}
+          <View className="flex-row justify-between py-2 mb-4">
+            <Text className="text-lg font-semibold text-gray-800">Total</Text>
+            <Text className="text-xl font-bold text-gray-900">Rs {total.toFixed(2)}</Text>
+          </View>
+
+          {/* Payment Method Selection */}
+          <View className="mb-4">
+            <Text className="mb-3 text-sm font-medium text-gray-700">Payment Method</Text>
+            <View className="flex-row space-x-2">
+              <TouchableOpacity
+                onPress={() => setPaymentMethod('cash')}
+                className={`flex-1 py-3 rounded-lg border ${paymentMethod === 'cash' ? 'bg-green-50 border-green-500' : 'bg-gray-100 border-gray-200'}`}
+                activeOpacity={0.8}
+              >
+                <View className="flex-row items-center justify-center">
+                  <Feather name="dollar-sign" size={16} color={paymentMethod === 'cash' ? '#059669' : '#6B7280'} />
+                  <Text className={`ml-2 text-center font-medium ${paymentMethod === 'cash' ? 'text-green-700' : 'text-gray-600'}`}>
+                    Pay Now
+                  </Text>
+                </View>
+                <Text className="mt-1 text-xs text-center text-gray-500">Full Cash</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={() => setPaymentMethod('credit')}
+                className={`flex-1 py-3 rounded-lg border ${paymentMethod === 'credit' ? 'bg-blue-50 border-blue-500' : 'bg-gray-100 border-gray-200'}`}
+                activeOpacity={0.8}
+              >
+                <View className="flex-row items-center justify-center">
+                  <Feather name="credit-card" size={16} color={paymentMethod === 'credit' ? '#2563EB' : '#6B7280'} />
+                  <Text className={`ml-2 text-center font-medium ${paymentMethod === 'credit' ? 'text-blue-700' : 'text-gray-600'}`}>
+                    Pay Later
+                  </Text>
+                </View>
+                <Text className="mt-1 text-xs text-center text-gray-500">Full Credit</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                onPress={() => setPaymentMethod('mixed')}
+                className={`flex-1 py-3 rounded-lg border ${paymentMethod === 'mixed' ? 'bg-purple-50 border-purple-500' : 'bg-gray-100 border-gray-200'}`}
+                activeOpacity={0.8}
+              >
+                <View className="flex-row items-center justify-center">
+                  <Feather name="divide" size={16} color={paymentMethod === 'mixed' ? '#7C3AED' : '#6B7280'} />
+                  <Text className={`ml-2 text-center font-medium ${paymentMethod === 'mixed' ? 'text-purple-700' : 'text-gray-600'}`}>
+                    Partial
+                  </Text>
+                </View>
+                <Text className="mt-1 text-xs text-center text-gray-500">Mixed</Text>
               </TouchableOpacity>
             </View>
           </View>
-        ) : (
-          <View className="items-center justify-center py-4">
-            <Feather name="user" size={32} color="#9CA3AF" />
-            <Text className="mt-2 text-gray-500">No customer selected</Text>
-            <Text className="text-sm text-gray-400">Tap "Select Customer" to choose</Text>
-          </View>
-        )}
-      </View>
 
-      {/* Order Items Section */}
-      <View className="p-4 mb-4 bg-white shadow-sm rounded-2xl">
-        <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-lg font-semibold text-gray-800">Order Items</Text>
-          <TouchableOpacity
-            onPress={() => setAddItemModal(true)}
-            className="flex-row items-center px-4 py-2 bg-gray-800 rounded-lg"
-            activeOpacity={0.8}
-          >
-            <Feather name="plus" size={16} color="white" />
-            <Text className="ml-2 text-sm font-semibold text-white">Add Item</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Cart Items List */}
-        {orderItems.length > 0 ? (
-          <View className="mb-4">
-            {orderItems.map((item, index) => (
-              <CartItemCard
-                key={item.id}
-                item={item}
-                index={index}
-                onUpdateQuantity={updateCartItemQuantity}
-                onRemove={removeCartItem}
-              />
-            ))}
-            
-            <TouchableOpacity
-              onPress={handleClearCart}
-              className="flex-row items-center justify-center py-2 mt-2 rounded-lg bg-red-50"
-              activeOpacity={0.7}
-            >
-              <Feather name="trash-2" size={16} color="#DC2626" />
-              <Text className="ml-2 text-sm font-medium text-red-600">Clear All Items</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View className="items-center justify-center py-6">
-            <Feather name="shopping-bag" size={40} color="#D1D5DB" />
-            <Text className="mt-3 text-lg font-medium text-gray-400">Cart is Empty</Text>
-            <Text className="mt-1 text-gray-400">Add items to create an order</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Order Summary Section */}
-      <View className="p-4 mb-4 bg-white shadow-sm rounded-2xl">
-        <Text className="mb-4 text-lg font-semibold text-gray-800">Order Summary</Text>
-        
-        {/* Subtotal */}
-        <View className="flex-row justify-between py-2">
-          <Text className="text-gray-600">Subtotal</Text>
-          <Text className="font-medium">Rs {subTotal.toFixed(2)}</Text>
-        </View>
-
-        {/* Discount */}
-        <View className="flex-row justify-between py-2">
-          <Text className="text-gray-600">Discount</Text>
-          <View className="flex-row items-center">
-            <TextInput
-              value={discount ? String(discount) : ""}
-              onChangeText={t => setDiscount(Number(t) || 0)}
-              placeholder="0"
-              keyboardType="numeric"
-              className="w-20 font-medium text-right"
-            />
-            <Text className="ml-1 text-gray-400">Rs</Text>
-          </View>
-        </View>
-
-        {/* Divider */}
-        <View className="my-2 border-t border-gray-200" />
-
-        {/* Total */}
-        <View className="flex-row justify-between py-2 mb-4">
-          <Text className="text-lg font-semibold text-gray-800">Total</Text>
-          <Text className="text-xl font-bold text-gray-900">Rs {total.toFixed(2)}</Text>
-        </View>
-
-        {/* Payment Method Selection */}
-        <View className="mb-4">
-          <Text className="mb-3 text-sm font-medium text-gray-700">Payment Method</Text>
-          <View className="flex-row space-x-2">
-            <TouchableOpacity
-              onPress={() => setPaymentMethod('cash')}
-              className={`flex-1 py-3 rounded-lg border ${paymentMethod === 'cash' ? 'bg-green-50 border-green-500' : 'bg-gray-100 border-gray-200'}`}
-              activeOpacity={0.8}
-            >
-              <View className="flex-row items-center justify-center">
-                <Feather name="dollar-sign" size={16} color={paymentMethod === 'cash' ? '#059669' : '#6B7280'} />
-                <Text className={`ml-2 text-center font-medium ${paymentMethod === 'cash' ? 'text-green-700' : 'text-gray-600'}`}>
-                  Pay Now
-                </Text>
+          {/* Paid Amount Input (show only for cash or mixed) */}
+          {(paymentMethod === 'cash' || paymentMethod === 'mixed') && (
+            <View className="mb-4">
+              <Text className="mb-2 text-sm font-medium text-gray-700">
+                {paymentMethod === 'cash' ? 'Paid Amount' : 'Amount Paid Now'}
+              </Text>
+              <View className="flex-row items-center px-4 py-3 border border-gray-300 rounded-lg bg-gray-50">
+                <Text className="mr-2 text-gray-500">Rs</Text>
+                <TextInput
+                  value={paymentMethod === 'cash' ? String(total) : String(paidAmount)}
+                  onChangeText={t => setPaidAmount(Number(t) || 0)}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  className="flex-1 text-lg font-medium text-gray-800"
+                  editable={paymentMethod === 'mixed'}
+                  selectTextOnFocus={paymentMethod === 'mixed'}
+                />
+                {paymentMethod === 'mixed' && (
+                  <Text className="ml-2 text-sm text-gray-500">
+                    of Rs {total.toFixed(2)}
+                  </Text>
+                )}
               </View>
-              <Text className="mt-1 text-xs text-center text-gray-500">Full Cash</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => setPaymentMethod('credit')}
-              className={`flex-1 py-3 rounded-lg border ${paymentMethod === 'credit' ? 'bg-blue-50 border-blue-500' : 'bg-gray-100 border-gray-200'}`}
-              activeOpacity={0.8}
-            >
-              <View className="flex-row items-center justify-center">
-                <Feather name="credit-card" size={16} color={paymentMethod === 'credit' ? '#2563EB' : '#6B7280'} />
-                <Text className={`ml-2 text-center font-medium ${paymentMethod === 'credit' ? 'text-blue-700' : 'text-gray-600'}`}>
-                  Pay Later
-                </Text>
-              </View>
-              <Text className="mt-1 text-xs text-center text-gray-500">Full Credit</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => setPaymentMethod('mixed')}
-              className={`flex-1 py-3 rounded-lg border ${paymentMethod === 'mixed' ? 'bg-purple-50 border-purple-500' : 'bg-gray-100 border-gray-200'}`}
-              activeOpacity={0.8}
-            >
-              <View className="flex-row items-center justify-center">
-                <Feather name="divide" size={16} color={paymentMethod === 'mixed' ? '#7C3AED' : '#6B7280'} />
-                <Text className={`ml-2 text-center font-medium ${paymentMethod === 'mixed' ? 'text-purple-700' : 'text-gray-600'}`}>
-                  Partial
-                </Text>
-              </View>
-              <Text className="mt-1 text-xs text-center text-gray-500">Mixed</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Paid Amount Input (show only for cash or mixed) */}
-        {(paymentMethod === 'cash' || paymentMethod === 'mixed') && (
-          <View className="mb-4">
-            <Text className="mb-2 text-sm font-medium text-gray-700">
-              {paymentMethod === 'cash' ? 'Paid Amount' : 'Amount Paid Now'}
-            </Text>
-            <View className="flex-row items-center px-4 py-3 border border-gray-300 rounded-lg bg-gray-50">
-              <Text className="mr-2 text-gray-500">Rs</Text>
-              <TextInput
-                value={paymentMethod === 'cash' ? String(total) : String(paidAmount)}
-                onChangeText={t => setPaidAmount(Number(t) || 0)}
-                placeholder="0"
-                keyboardType="numeric"
-                className="flex-1 text-lg font-medium text-gray-800"
-                editable={paymentMethod === 'mixed'}
-                selectTextOnFocus={paymentMethod === 'mixed'}
-              />
-              {paymentMethod === 'mixed' && (
-                <Text className="ml-2 text-sm text-gray-500">
-                  of Rs {total.toFixed(2)}
+              {paymentMethod === 'mixed' && paidAmount > total && (
+                <Text className="mt-1 text-sm text-red-600">
+                  Paid amount cannot exceed total
                 </Text>
               )}
             </View>
-            {paymentMethod === 'mixed' && paidAmount > total && (
-              <Text className="mt-1 text-sm text-red-600">
-                Paid amount cannot exceed total
-              </Text>
-            )}
-          </View>
-        )}
+          )}
 
-        {/* Due Amount Display */}
-        <View className="p-3 rounded-lg" style={{
-          backgroundColor: dueAmount > 0 ? '#FFFBEB' : '#F0FDF4',
-          borderWidth: 1,
-          borderColor: dueAmount > 0 ? '#FDE68A' : '#BBF7D0'
-        }}>
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <Feather 
-                name={dueAmount > 0 ? "clock" : "check-circle"} 
-                size={20} 
-                color={dueAmount > 0 ? '#F59E0B' : '#10B981'} 
-              />
-              <Text className={`ml-2 font-medium ${dueAmount > 0 ? 'text-orange-700' : 'text-green-700'}`}>
-                {dueAmount > 0 ? 'Amount Due' : 'Fully Paid'}
-              </Text>
-            </View>
-            <Text className={`text-xl font-bold ${dueAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-              Rs {dueAmount.toFixed(2)}
-            </Text>
-          </View>
-          <Text className="mt-1 text-sm" style={{
-            color: dueAmount > 0 ? '#B45309' : '#065F46'
+          {/* Due Amount Display */}
+          <View className="p-3 rounded-lg" style={{
+            backgroundColor: dueAmount > 0 ? '#FFFBEB' : '#F0FDF4',
+            borderWidth: 1,
+            borderColor: dueAmount > 0 ? '#FDE68A' : '#BBF7D0'
           }}>
-            {dueAmount > 0 
-              ? `Customer will owe: Rs ${dueAmount.toFixed(2)}`
-              : 'No pending balance'}
-          </Text>
-        </View>
-      </View>
-
-      {/* Order Notes */}
-      <View className="p-4 mb-6 bg-white shadow-sm rounded-2xl">
-        <Text className="mb-3 text-lg font-semibold text-gray-800">Order Notes</Text>
-        <TextInput
-          value={orderNotes}
-          onChangeText={setOrderNotes}
-          placeholder="Add any notes for this order..."
-          multiline
-          numberOfLines={3}
-          textAlignVertical="top"
-          className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base focus:border-gray-400 min-h-[80px]"
-        />
-      </View>
-
-      {/* Action Buttons */}
-      <View className="flex-row space-x-4 mb-14">
-        <TouchableOpacity
-          onPress={resetForm}
-          className="items-center flex-1 py-4 bg-gray-200 rounded-xl"
-          activeOpacity={0.8}
-          disabled={isPlacingOrder}
-        >
-          <Text className="text-base font-semibold text-gray-800">Cancel</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handlePlaceOrder}
-          className="items-center flex-1 py-4 bg-gray-800 shadow-sm rounded-xl shadow-gray-700/30"
-          activeOpacity={0.9}
-          disabled={!selectedCustomer || orderItems.length === 0 || isPlacingOrder}
-          style={{ opacity: (!selectedCustomer || orderItems.length === 0 || isPlacingOrder) ? 0.5 : 1 }}
-        >
-          {isPlacingOrder ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <>
+            <View className="flex-row items-center justify-between">
               <View className="flex-row items-center">
-                <Feather name="shopping-cart" size={20} color="white" />
-                <Text className="ml-2 text-base font-semibold text-white">
-                  {dueAmount > 0 ? 'Create Invoice' : 'Complete Sale'}
+                <Feather 
+                  name={dueAmount > 0 ? "clock" : "check-circle"} 
+                  size={20} 
+                  color={dueAmount > 0 ? '#F59E0B' : '#10B981'} 
+                />
+                <Text className={`ml-2 font-medium ${dueAmount > 0 ? 'text-orange-700' : 'text-green-700'}`}>
+                  {dueAmount > 0 ? 'Amount Due' : 'Fully Paid'}
                 </Text>
               </View>
-              <Text className="mt-1 text-sm text-gray-300">
-                {paymentMethod === 'cash' ? 'Full Payment' : 
-                 paymentMethod === 'credit' ? 'Credit Sale' : 
-                 `Rs ${paidAmount.toFixed(2)} Paid`}
+              <Text className={`text-xl font-bold ${dueAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                Rs {dueAmount.toFixed(2)}
               </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+            </View>
+            <Text className="mt-1 text-sm" style={{
+              color: dueAmount > 0 ? '#B45309' : '#065F46'
+            }}>
+              {dueAmount > 0 
+                ? `Customer will owe: Rs ${dueAmount.toFixed(2)}`
+                : 'No pending balance'}
+            </Text>
+          </View>
+        </View>
 
-      {/* =============== MODALS =============== */}
+        {/* Order Notes */}
+        <View className="p-4 mb-6 bg-white shadow-sm rounded-2xl">
+          <Text className="mb-3 text-lg font-semibold text-gray-800">Order Notes</Text>
+          <TextInput
+            value={orderNotes}
+            onChangeText={setOrderNotes}
+            placeholder="Add any notes for this order..."
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base focus:border-gray-400 min-h-[80px]"
+          />
+        </View>
 
-      {/* Customer Selection Modal */}
+        {/* Action Buttons */}
+        <View className="flex-row space-x-4 mb-14">
+          <TouchableOpacity
+            onPress={resetForm}
+            className="items-center flex-1 py-4 bg-gray-200 rounded-xl"
+            activeOpacity={0.8}
+            disabled={isPlacingOrder}
+          >
+            <Text className="text-base font-semibold text-gray-800">Cancel</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handlePlaceOrder}
+            className="items-center flex-1 py-4 bg-gray-800 shadow-sm rounded-xl shadow-gray-700/30"
+            activeOpacity={0.9}
+            disabled={!selectedCustomer || orderItems.length === 0 || isPlacingOrder}
+            style={{ opacity: (!selectedCustomer || orderItems.length === 0 || isPlacingOrder) ? 0.5 : 1 }}
+          >
+            {isPlacingOrder ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <>
+                <View className="flex-row items-center">
+                  <Feather name="shopping-cart" size={20} color="white" />
+                  <Text className="ml-2 text-base font-semibold text-white">
+                    {dueAmount > 0 ? 'Create Invoice' : 'Complete Sale'}
+                  </Text>
+                </View>
+                <Text className="mt-1 text-sm text-gray-300">
+                  {paymentMethod === 'cash' ? 'Full Payment' : 
+                   paymentMethod === 'credit' ? 'Credit Sale' : 
+                   `Rs ${paidAmount.toFixed(2)} Paid`}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* PDF Options Modal */}
+      <Modal
+        transparent
+        animationType="slide"
+        visible={pdfOptionsModal}
+        onRequestClose={() => setPdfOptionsModal(false)}
+      >
+        <View className="justify-end flex-1 bg-black/50">
+          <View className="px-6 pt-6 pb-10 bg-white rounded-t-3xl">
+            
+            {/* Header */}
+            <View className="flex-row items-center justify-between mb-6">
+              <Text className="text-xl font-bold text-gray-900">
+                Invoice Generated
+              </Text>
+              <TouchableOpacity 
+                onPress={() => setPdfOptionsModal(false)}
+                hitSlop={12}
+              >
+                <Feather name="x" size={26} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Success Message */}
+            <View className="items-center mb-6">
+              <View className="items-center justify-center w-16 h-16 mb-3 bg-green-100 rounded-full">
+                <Feather name="check" size={32} color="#059669" />
+              </View>
+              <Text className="text-lg font-semibold text-gray-900">
+                Invoice #{lastGeneratedPDF?.orderId}
+              </Text>
+              <Text className="text-sm text-gray-500">
+                Your invoice has been generated successfully
+              </Text>
+            </View>
+
+            {/* Action Buttons */}
+            <View className="flex-row mb-6 space-x-3">
+              <TouchableOpacity
+                onPress={handleOpenPDF}
+                className="items-center flex-1 py-3 bg-blue-50 rounded-xl"
+              >
+                <Feather name="eye" size={24} color="#2563EB" />
+                <Text className="mt-1 text-sm font-medium text-blue-700">Open</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handlePrintPDF}
+                className="items-center flex-1 py-3 bg-purple-50 rounded-xl"
+              >
+                <Feather name="printer" size={24} color="#7C3AED" />
+                <Text className="mt-1 text-sm font-medium text-purple-700">Print</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleSharePDF}
+                className="items-center flex-1 py-3 bg-green-50 rounded-xl"
+              >
+                <Feather name="share-2" size={24} color="#059669" />
+                <Text className="mt-1 text-sm font-medium text-green-700">Share</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Email Section */}
+            <View className="mb-6">
+              <Text className="mb-2 text-sm font-medium text-gray-700">
+                Email Invoice
+              </Text>
+              <View className="flex-row items-center mb-2">
+                <View className="flex-1 mr-2">
+                  <TextInput
+                    value={emailAddress}
+                    onChangeText={setEmailAddress}
+                    placeholder="customer@email.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    className="px-4 py-3 border border-gray-200 bg-gray-50 rounded-xl"
+                  />
+                </View>
+                <TouchableOpacity
+                  onPress={handleSendEmail}
+                  disabled={isSendingEmail || !emailAddress}
+                  className="px-5 py-3 bg-gray-800 rounded-xl"
+                  style={{ opacity: (isSendingEmail || !emailAddress) ? 0.5 : 1 }}
+                >
+                  {isSendingEmail ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Feather name="send" size={20} color="white" />
+                  )}
+                </TouchableOpacity>
+              </View>
+              <Text className="text-xs text-gray-500">
+                Send invoice directly to customer's email
+              </Text>
+            </View>
+
+            {/* Done Button */}
+            <TouchableOpacity
+              onPress={() => setPdfOptionsModal(false)}
+              className="py-4 bg-gray-800 rounded-xl"
+            >
+              <Text className="text-lg font-semibold text-center text-white">Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* =============== CUSTOMER MODAL =============== */}
       <Modal
         transparent
         animationType="slide"
@@ -730,45 +905,38 @@ const sales = () => {
             </View>
 
             {/* Customer List */}
-            {isLoadingCustomers ? (
-              <View className="items-center justify-center py-10">
-                <ActivityIndicator size="large" color="#4B5563" />
-                <Text className="mt-4 text-gray-600">Loading customers...</Text>
-              </View>
-            ) : (
-              <FlatList
-                data={customers}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    onPress={() => handleSelectCustomer(item)}
-                    className="p-4 mb-2 bg-gray-50 rounded-xl active:bg-gray-100"
-                    activeOpacity={0.7}
-                  >
-                    <Text className="font-medium text-gray-900">{item.name}</Text>
-                    <Text className="text-sm text-gray-500">{item.phone}</Text>
-                    {item.balance > 0 && (
-                      <Text className="mt-1 text-sm text-orange-600">
-                        Balance: Rs {item.balance.toFixed(2)}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={
-                  <View className="items-center justify-center py-10">
-                    <Feather name="users" size={40} color="#9CA3AF" />
-                    <Text className="mt-3 text-gray-500">No customers found</Text>
-                    <Text className="mt-1 text-sm text-gray-400">Add customers to get started</Text>
-                  </View>
-                }
-              />
-            )}
+            <FlatList
+              data={customers}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => handleSelectCustomer(item)}
+                  className="p-4 mb-2 bg-gray-50 rounded-xl active:bg-gray-100"
+                  activeOpacity={0.7}
+                >
+                  <Text className="font-medium text-gray-900">{item.name}</Text>
+                  <Text className="text-sm text-gray-500">{item.phone}</Text>
+                  {item.balance > 0 && (
+                    <Text className="mt-1 text-sm text-orange-600">
+                      Balance: Rs {item.balance.toFixed(2)}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View className="items-center justify-center py-10">
+                  <Feather name="users" size={40} color="#9CA3AF" />
+                  <Text className="mt-3 text-gray-500">No customers found</Text>
+                  <Text className="mt-1 text-sm text-gray-400">Add customers to get started</Text>
+                </View>
+              }
+            />
           </View>
         </View>
       </Modal>
 
-      {/* Add Item Modal */}
+      {/* =============== ADD ITEM MODAL =============== */}
       <Modal
         transparent
         animationType="slide"
@@ -905,7 +1073,7 @@ const sales = () => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 };
 

@@ -5,16 +5,18 @@ import uploadToCloudinary from './UploadCloudinary';
 
 export const generateAndUploadPDF = async (saleData: any) => {
   try {
-    // Format date
-    const billDate = new Date().toLocaleDateString('en-US', {
+    // Format date and time
+    const now = new Date();
+    const billDate = now.toLocaleDateString('en-US', {
+      year: 'numeric',
       month: '2-digit',
-      day: '2-digit',
-      year: 'numeric'
-    });
+      day: '2-digit'
+    }).replace(/\//g, '-');
     
-    const billTime = new Date().toLocaleTimeString([], {
+    const billTime = now.toLocaleTimeString([], {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: true
     });
 
     // Calculate totals
@@ -24,87 +26,192 @@ export const generateAndUploadPDF = async (saleData: any) => {
     const tax = subtotal * 0.05;
     const total = subtotal + tax;
 
-    // Create HTML template
+    // Generate invoice number
+    const invoiceNumber = saleData.invoiceNumber || `INV-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}-${now.getTime().toString().slice(-6)}`;
+
+    // Create HTML template optimized for 58mm thermal printer
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Invoice #${saleData.invoiceNumber || Date.now()}</title>
+          <meta name="viewport" content="width=58mm, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>Invoice #${invoiceNumber}</title>
           <style>
-            body {
-              font-family: 'Helvetica', 'Arial', sans-serif;
+            @page {
+              size: 58mm auto;
               margin: 0;
-              padding: 20px;
-              background: #fff;
             }
-            .invoice-box {
-              max-width: 800px;
-              margin: auto;
-              padding: 30px;
-              border: 1px solid #eee;
-              box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+            body {
+              font-family: 'Courier New', 'Lucida Console', monospace;
+              width: 58mm;
+              margin: 0 auto;
+              padding: 5px 0;
+              background: white;
+              color: black;
+              font-size: 10px;
+              line-height: 1.3;
+            }
+            .receipt {
+              width: 100%;
+              padding: 0 3px;
             }
             .header {
               text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 20px;
+              margin-bottom: 8px;
+              border-bottom: 1px dashed #333;
+              padding-bottom: 8px;
             }
             .header h1 {
-              font-size: 28px;
-              color: #333;
-              margin: 0;
+              font-size: 18px;
+              font-weight: bold;
+              margin: 2px 0;
+              letter-spacing: 1px;
+              text-transform: uppercase;
+            }
+            .header .slogan {
+              font-size: 8px;
+              color: #555;
+              margin: 2px 0;
+            }
+            .divider {
+              border-top: 1px dashed #333;
+              margin: 6px 0;
+            }
+            .info-row {
+              display: flex;
+              justify-content: space-between;
+              margin: 2px 0;
+            }
+            .info-label {
+              font-weight: bold;
+            }
+            .invoice-details {
+              margin: 6px 0;
+              padding: 4px 0;
+              border-bottom: 1px dashed #333;
             }
             table {
               width: 100%;
               border-collapse: collapse;
-              margin: 20px 0;
+              margin: 6px 0;
             }
             th {
-              background: #333;
-              color: white;
-              padding: 12px;
               text-align: left;
+              border-bottom: 1px solid #333;
+              padding: 4px 0;
+              font-size: 9px;
             }
             td {
-              padding: 12px;
-              border-bottom: 1px solid #ddd;
+              padding: 3px 0;
+            }
+            .item-name {
+              max-width: 120px;
+              overflow: hidden;
+              white-space: nowrap;
+              text-overflow: ellipsis;
             }
             .text-right {
               text-align: right;
             }
-            .grand-total {
-              font-size: 22px;
+            .text-center {
+              text-align: center;
+            }
+            .amount-section {
+              margin: 8px 0;
+              border-top: 1px dashed #333;
+              border-bottom: 1px dashed #333;
+              padding: 6px 0;
+            }
+            .amount-row {
+              display: flex;
+              justify-content: space-between;
+              margin: 2px 0;
+            }
+            .total-row {
+              font-size: 12px;
               font-weight: bold;
-              color: #000;
-              border-top: 2px solid #333;
+              border-top: 1px solid #333;
+              margin-top: 4px;
+              padding-top: 4px;
+            }
+            .payment-info {
+              margin: 8px 0;
+              padding: 4px 0;
+            }
+            .payment-badge {
+              background: ${saleData.dueAmount > 0 ? '#fef3c7' : '#d1fae5'};
+              color: ${saleData.dueAmount > 0 ? '#92400e' : '#065f46'};
+              padding: 4px;
+              text-align: center;
+              font-weight: bold;
+              font-size: 10px;
+              border-radius: 3px;
+            }
+            .footer {
+              text-align: center;
               margin-top: 10px;
-              padding-top: 15px;
+              padding-top: 6px;
+              border-top: 1px dashed #333;
+              font-size: 8px;
+            }
+            .footer .developed {
+              margin-top: 4px;
+              color: #888;
+              font-style: italic;
+            }
+            .qr-placeholder {
+              text-align: center;
+              margin: 6px 0;
+              font-size: 8px;
+            }
+            .thank-you {
+              font-weight: bold;
+              margin: 4px 0;
             }
           </style>
         </head>
         <body>
-          <div class="invoice-box">
+          <div class="receipt">
+            <!-- Header -->
             <div class="header">
-              <h1>INVOICE</h1>
-              <p>Your Business Name</p>
-              <p>Tel: (555) 111-222-33</p>
+              <h1>MYBIZ</h1>
+              <div class="slogan">One app. Every Business.</div>
             </div>
 
-            <div style="margin-bottom: 20px;">
-              <p><strong>Invoice #:</strong> ${saleData.invoiceNumber || 'INV-' + Date.now().toString().slice(-8)}</p>
-              <p><strong>Date:</strong> ${billDate} ${billTime}</p>
-              <p><strong>Cashier:</strong> ${saleData.cashierName || 'John Smith'}</p>
+            <!-- Invoice Info -->
+            <div class="invoice-details">
+              <div class="info-row">
+                <span class="info-label">Invoice #:</span>
+                <span>${invoiceNumber}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Date:</span>
+                <span>${billDate}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Time:</span>
+                <span>${billTime}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Cashier:</span>
+                <span>${saleData.cashierName || 'Cashier'}</span>
+              </div>
             </div>
 
-            <div style="margin-bottom: 20px;">
-              <h3>Bill To:</h3>
-              <p><strong>Name:</strong> ${saleData.customerName || 'Walk-in Customer'}</p>
-              <p><strong>Phone:</strong> ${saleData.customerPhone || 'N/A'}</p>
+            <!-- Customer Info -->
+            <div class="invoice-details">
+              <div class="info-row">
+                <span class="info-label">Customer:</span>
+                <span>${saleData.customerName || 'Walk-in Customer'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Phone:</span>
+                <span>${saleData.customerPhone || 'N/A'}</span>
+              </div>
             </div>
 
+            <!-- Items Table -->
             <table>
               <thead>
                 <tr>
@@ -117,37 +224,72 @@ export const generateAndUploadPDF = async (saleData: any) => {
               <tbody>
                 ${saleData.items.map((item: any) => `
                   <tr>
-                    <td>${item.name}</td>
+                    <td class="item-name">${item.name}</td>
                     <td class="text-right">${item.quantity}</td>
-                    <td class="text-right">Rs ${item.price.toFixed(2)}</td>
-                    <td class="text-right">Rs ${(item.price * item.quantity).toFixed(2)}</td>
+                    <td class="text-right">${item.price.toFixed(0)}</td>
+                    <td class="text-right">${(item.price * item.quantity).toFixed(0)}</td>
                   </tr>
                 `).join('')}
               </tbody>
             </table>
 
-            <div style="margin-top: 20px;">
-              <div style="display: flex; justify-content: flex-end;">
-                <div style="width: 300px;">
-                  <p><strong>Subtotal:</strong> Rs ${subtotal.toFixed(2)}</p>
-                  <p><strong>Tax (5%):</strong> Rs ${tax.toFixed(2)}</p>
-                  <p class="grand-total"><strong>Total:</strong> Rs ${total.toFixed(2)}</p>
-                  <p><strong>Payment:</strong> ${saleData.paymentMethod}</p>
-                  ${saleData.dueAmount ? `<p style="color: #dc2626;"><strong>Due:</strong> Rs ${saleData.dueAmount.toFixed(2)}</p>` : ''}
-                </div>
+            <!-- Amount Summary -->
+            <div class="amount-section">
+              <div class="amount-row">
+                <span>Subtotal:</span>
+                <span>Rs ${subtotal.toFixed(0)}</span>
+              </div>
+              <div class="amount-row">
+                <span>Tax (5%):</span>
+                <span>Rs ${tax.toFixed(0)}</span>
+              </div>
+              <div class="amount-row total-row">
+                <span>TOTAL:</span>
+                <span>Rs ${total.toFixed(0)}</span>
               </div>
             </div>
 
-            <div style="margin-top: 40px; text-align: center;">
-              <p>Thank you for your business!</p>
+            <!-- Payment Info -->
+            <div class="payment-info">
+              <div class="payment-badge">
+                ${saleData.paymentMethod === 'cash' ? 'PAID - CASH' : 
+                  saleData.paymentMethod === 'credit' ? 'CREDIT SALE' : 
+                  saleData.paymentMethod === 'mixed' ? 'PARTIAL PAYMENT' : 'PENDING'}
+              </div>
+              <div class="amount-row" style="margin-top: 4px;">
+                <span>Paid Amount:</span>
+                <span>Rs ${saleData.paidAmount ? saleData.paidAmount.toFixed(0) : total.toFixed(0)}</span>
+              </div>
+              ${saleData.dueAmount > 0 ? `
+                <div class="amount-row" style="color: #dc2626;">
+                  <span>Due Amount:</span>
+                  <span>Rs ${saleData.dueAmount.toFixed(0)}</span>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Divider -->
+            <div class="divider"></div>
+
+            <!-- Footer -->
+            <div class="footer">
+              <div class="thank-you">THANK YOU!</div>
+              <div>Visit us again</div>
+              <div class="qr-placeholder">[ SCAN FOR FEEDBACK ]</div>
+              <div class="developed">Developed by Dinuka Dev</div>
+              <div style="margin-top: 4px; font-size: 7px;">Terms & conditions apply</div>
             </div>
           </div>
         </body>
       </html>
     `;
 
-    // Generate PDF file
-    const { uri } = await Print.printToFileAsync({ html });
+    // Generate PDF file with custom dimensions
+    const { uri } = await Print.printToFileAsync({ 
+      html,
+      width: 210, // 58mm ≈ 210 points (1mm = 3.78 points, 58mm × 3.78 ≈ 219, using 210 for safety)
+      height: 842, // Auto height
+    });
     
     console.log('PDF generated at:', uri);
 
@@ -156,7 +298,7 @@ export const generateAndUploadPDF = async (saleData: any) => {
     
     console.log('Uploaded to Cloudinary:', cloudinaryResult.secure_url);
 
-    // Clean up local file using the new API
+    // Clean up local file
     try {
       const fileInfo = await FileSystem.getInfoAsync(uri);
       if (fileInfo.exists) {
@@ -171,10 +313,11 @@ export const generateAndUploadPDF = async (saleData: any) => {
       success: true,
       localUri: uri,
       cloudinaryUrl: cloudinaryResult.secure_url,
-      publicId: cloudinaryResult.public_id
+      publicId: cloudinaryResult.public_id,
+      invoiceNumber: invoiceNumber
     };
 
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('PDF generation/upload error:', error);
     return {
       success: false,

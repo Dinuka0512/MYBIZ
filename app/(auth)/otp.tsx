@@ -26,13 +26,6 @@ const OTPVerify = () => {
 
   const handleVerify = () => {
     router.push("/changePassword")
-    // const otpString = otp.join('');
-    // if (otpString.length < 4) {
-    //   return Alert.alert("Invalid", "Please enter the full 4-digit code.");
-    // }
-    // // Your verification logic here
-    // console.log("Verifying OTP:", otpString);
-    // router.replace('/home'); 
   };
 
   return (

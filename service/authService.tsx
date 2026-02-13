@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const registration = async (name:string, email:string, password:string)=>{
     try {
+        const normalizedEmail = email.toLowerCase().trim();
         // 1. Create the user account in Firebase Authentication
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
@@ -15,7 +16,7 @@ export const registration = async (name:string, email:string, password:string)=>
         await setDoc(doc(db, "Users", user.uid), {
             uid: user.uid,
             name: name,
-            email: email,
+            email: normalizedEmail,
             createdAt: new Date(),
         });
 
@@ -47,7 +48,8 @@ export const registration = async (name:string, email:string, password:string)=>
 
 export const login = async (email: string, password: string) => {
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const normalizedEmail = email.toLowerCase().trim();
+    const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
     const user = userCredential.user;
 
     Alert.alert("Success","Login Successful!");

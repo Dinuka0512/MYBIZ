@@ -18,11 +18,13 @@ import { router } from "expo-router";
 import { getAllCustomers } from "@/service/customerService";
 import { getAllItems } from "@/service/itemService";
 import { completeOrder } from "@/service/orderService";
+import { generateAndUploadPDF } from "@/util/pdfGenarat&Uploader";
 
-const Sales = () => {
+const sales = () => {
   const [customers, setCustomers] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [userDetails, setUserDetails] = useState<any>(null);
   
   // Order Details
   const [orderItems, setOrderItems] = useState<any[]>([]);
@@ -67,6 +69,7 @@ const Sales = () => {
       }
 
       const user = JSON.parse(stored);
+      setUserDetails(user);
       
       // Load customers and items
       const [customersList, itemsList] = await Promise.all([
@@ -328,27 +331,59 @@ const Sales = () => {
               );
               
               if (orderId) {
-                // Show success message with auto-close
-                const successMessage = paymentMethod === 'cash'
-                  ? `Order #${orderId} placed successfully!\nCash payment of Rs ${total.toFixed(2)} received.`
-                  : paymentMethod === 'credit'
-                  ? `Order #${orderId} placed!\nCustomer owes Rs ${dueAmount.toFixed(2)}`
-                  : `Order #${orderId} placed!\nPaid: Rs ${paidAmount.toFixed(2)}, Due: Rs ${dueAmount.toFixed(2)}`;
+                // Prepare data for PDF
+                const saleData = {
+                  invoiceNumber: orderId,
+                  customerName: selectedCustomer.name,
+                  customerPhone: selectedCustomer.phone || '',
+                  customerAddress: selectedCustomer.address || '',
+                  items: orderItems,
+                  paymentMethod: paymentMethod,
+                  paidAmount: paymentMethod === 'cash' ? total : paidAmount,
+                  dueAmount: dueAmount,
+                  cashierName: userDetails?.name || 'Cashier'
+                };
+
+                // Generate PDF and upload to Cloudinary
+                const result = await generateAndUploadPDF(saleData);
                 
-                Alert.alert(
-                  "Success", 
-                  successMessage,
-                  [
-                    { 
-                      text: "OK", 
-                      onPress: async () => {
-                        // Reset form and reload data
-                        resetForm();
-                        await loadData(); // Reload latest items and customers
+                if (result.success) {
+                  console.log('PDF uploaded to Cloudinary:', result.cloudinaryUrl);
+                  
+                  const successMessage = paymentMethod === 'cash'
+                    ? `Order #${orderId} placed successfully!\nInvoice saved to cloud.\nCash payment of Rs ${total.toFixed(2)} received.`
+                    : paymentMethod === 'credit'
+                    ? `Order #${orderId} placed!\nInvoice saved to cloud.\nCustomer owes Rs ${dueAmount.toFixed(2)}`
+                    : `Order #${orderId} placed!\nInvoice saved to cloud.\nPaid: Rs ${paidAmount.toFixed(2)}, Due: Rs ${dueAmount.toFixed(2)}`;
+                  
+                  Alert.alert(
+                    "Success", 
+                    successMessage,
+                    [
+                      { 
+                        text: "OK", 
+                        onPress: async () => {
+                          resetForm();
+                          await loadData();
+                        }
                       }
-                    }
-                  ]
-                );
+                    ]
+                  );
+                } else {
+                  Alert.alert(
+                    "Success", 
+                    `Order #${orderId} placed, but PDF upload failed.`,
+                    [
+                      { 
+                        text: "OK", 
+                        onPress: async () => {
+                          resetForm();
+                          await loadData();
+                        }
+                      }
+                    ]
+                  );
+                }
               }
             } catch (error) {
               console.error("Order placement error:", error);
@@ -831,10 +866,7 @@ const Sales = () => {
 
             {/* Item List */}
             <FlatList
-              data={items.filter(item => 
-                item.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
-                itemSearch === ""
-              )}
+              data={filteredItems}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => (
@@ -876,8 +908,6 @@ const Sales = () => {
     </ScrollView>
   );
 };
-
-export default Sales;
 
 /* ================= SUB COMPONENTS ================= */
 
@@ -958,3 +988,5 @@ const CartItemCard = ({
     </View>
   </View>
 );
+
+export default sales;

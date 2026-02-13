@@ -8,6 +8,7 @@ import Customers from "./customer";
 import Items from "./item";
 import Sales from "./sales";
 import Profile from "./profile";
+import ViewAllOrders from "../viewAllOrders";
 
 
 const _layout = () => {  

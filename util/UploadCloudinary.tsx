@@ -1,3 +1,4 @@
+// util/cloudinaryUpload.ts
 import { Platform } from "react-native";
 
 export type CloudinaryResponse = {
@@ -5,34 +6,38 @@ export type CloudinaryResponse = {
   public_id: string;
 };
 
-const uploadToCloudinary = async (imageUri: string): Promise<CloudinaryResponse> => {
+const uploadToCloudinary = async (fileUri: string): Promise<CloudinaryResponse> => {
   const data = new FormData();
 
   // Clean URI for Android compatibility
-  const uri = Platform.OS === "android" ? imageUri : imageUri.replace("file://", "");
+  const uri = Platform.OS === "android" ? fileUri : fileUri.replace("file://", "");
 
+  // Determine file type
+  const isPDF = uri.toLowerCase().endsWith('.pdf');
+  
   data.append("file", {
     uri: uri,
-    type: "image/jpeg",
-    name: "profile_upload.jpg",
+    type: isPDF ? "application/pdf" : "image/jpeg",
+    name: isPDF ? `invoice_${Date.now()}.pdf` : "upload.jpg",
   } as any);
 
-  // IMPORTANT: Replace these with your actual Cloudinary Dashboard values
   data.append("upload_preset", "MYBIZ-Cloudinary"); 
   const cloudName = "dgokbm0dx";
 
+  // Use correct endpoint based on file type
+  const endpoint = isPDF 
+    ? `https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`  // for PDFs
+    : `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`; // for images
+
   try {
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      {
-        method: "POST",
-        body: data,
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+    const response = await fetch(endpoint, {
+      method: "POST",
+      body: data,
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
     const result = await response.json();
 

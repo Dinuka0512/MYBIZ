@@ -356,10 +356,28 @@ const Customer = () => {
                   Phone Number
                 </Text>
                 <TextInput
-                  placeholder="077 123 4567"
-                  value={customerPhone}
-                  onChangeText={setCustomerPhone}
+                  placeholder="+94 XX XXX XXXX"
+                  value={customerPhone ? `+${customerPhone}` : ''}
+                  onChangeText={(text) => {
+                    // Remove all non-numeric characters and the leading + if present
+                    let cleaned = text.replace(/[^0-9]/g, '');
+                    
+                    // Handle Sri Lankan phone number format
+                    if (cleaned.startsWith('94')) {
+                      // If number starts with 94, keep it as is
+                      cleaned = cleaned.substring(0, 11); // Max 11 digits including 94
+                    } else if (cleaned.startsWith('0')) {
+                      // If starts with 0, replace with 94
+                      cleaned = '94' + cleaned.substring(1, 10);
+                    } else {
+                      // Otherwise add 94 prefix
+                      cleaned = '94' + cleaned.substring(0, 9);
+                    }
+                    
+                    setCustomerPhone(cleaned);
+                  }}
                   keyboardType="phone-pad"
+                  maxLength={14} // +94XXXXXXXXX = 13-14 chars with +
                   className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-base focus:border-gray-400"
                 />
               </View>
@@ -460,10 +478,28 @@ const Customer = () => {
                   Phone Number
                 </Text>
                 <TextInput
-                  placeholder="077 123 4567"
-                  value={customerPhone}
-                  onChangeText={setCustomerPhone}
+                  placeholder="+94 XX XXX XXXX"
+                  value={customerPhone ? `+${customerPhone}` : ''}
+                  onChangeText={(text) => {
+                    // Remove all non-numeric characters and the leading + if present
+                    let cleaned = text.replace(/[^0-9]/g, '');
+                    
+                    // Handle Sri Lankan phone number format
+                    if (cleaned.startsWith('94')) {
+                      // If number starts with 94, keep it as is
+                      cleaned = cleaned.substring(0, 11); // Max 11 digits including 94
+                    } else if (cleaned.startsWith('0')) {
+                      // If starts with 0, replace with 94
+                      cleaned = '94' + cleaned.substring(1, 10);
+                    } else {
+                      // Otherwise add 94 prefix
+                      cleaned = '94' + cleaned.substring(0, 9);
+                    }
+                    
+                    setCustomerPhone(cleaned);
+                  }}
                   keyboardType="phone-pad"
+                  maxLength={14} // +94XXXXXXXXX = 13-14 chars with +
                   className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-base focus:border-gray-400"
                 />
               </View>

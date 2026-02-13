@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router'// instance import
-import { sendPasswordResetEmail } from 'firebase/auth'
-import { auth } from '../../FierbaseConfig'
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -12,46 +10,7 @@ const ForgotPassword = () => {
       Alert.alert("Error", "Please enter your email");
       return;
     }
-
-    try {
-      sendPasswordResetEmail(auth, email)
-        .then(()=>{
-          Alert.alert(
-            "Success",
-            "Check your inbox! A password reset link has been sent."
-          );
-        })
-    } catch (error: any) {
-      console.log("Reset Error:", error);
-
-      let message = "Something went wrong. Please try again.";
-      switch (error.code) {
-        case "auth/invalid-email":
-          message = "Invalid email address";
-          break;
-
-        case "auth/user-not-found":
-          message = "No account found with this email";
-          break;
-
-        case "auth/missing-email":
-          message = "Please enter your email";
-          break;
-
-        case "auth/network-request-failed":
-          message = "Network error. Check your internet";
-          break;
-
-        case "auth/too-many-requests":
-          message = "Too many attempts. Try again later";
-          break;
-
-        default:
-          message = error.message;
-      }
-
-      Alert.alert("Error", message);
-    }
+    router.push("/otp") 
   };
 
   return (

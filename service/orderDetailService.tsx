@@ -160,3 +160,32 @@ export const getOrderDetailsByItem = async (userId: string, itemId: string) => {
     return [];
   }
 };
+
+export const getAllOrderDetails = async (userId: string) => {
+  try {
+    // Path: /Users/{userId}/orders/{orderId}/orderDetails
+    const ordersRef = collection(db, 'Users', userId, 'orders');
+    const ordersSnapshot = await getDocs(ordersRef);
+    
+    let allOrderDetails: any[] = [];
+    
+    // Loop through each order to get its orderDetails subcollection
+    for (const orderDoc of ordersSnapshot.docs) {
+      const orderDetailsRef = collection(db, 'Users', userId, 'orders', orderDoc.id, 'orderDetails');
+      const detailsSnapshot = await getDocs(orderDetailsRef);
+      
+      const orderDetails = detailsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        orderId: orderDoc.id,
+        ...doc.data()
+      }));
+      
+      allOrderDetails = [...allOrderDetails, ...orderDetails];
+    }
+    
+    return allOrderDetails;
+  } catch (error) {
+    console.error('Error fetching order details:', error);
+    return [];
+  }
+};

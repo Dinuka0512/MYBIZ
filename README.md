@@ -1,50 +1,132 @@
-# Welcome to your Expo app 👋
+# 🚀 MYBIZ – Business Management App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A comprehensive **business management mobile application** built with **React Native (Expo)** and **Firebase**.  
+Streamline your operations with **customers, items, orders, and sales management** all in one place.
 
-## Get started
+---
 
-1. Install dependencies
+## 📱 Features
 
-   ```bash
-   npm install
-   ```
+### 🔐 Authentication & Security
+- User registration with email/password  
+- Secure login with password visibility toggle  
+- Password reset via OTP  
+- Session management with AsyncStorage  
 
-2. Start the app
+### 👥 Customer Management
+- Add, edit, and delete customers  
+- View customer details & purchase history  
+- Track customer balances  
 
-   ```bash
-   npx expo start
-   ```
+### 📦 Inventory Management
+- Add and manage items  
+- Track stock quantities  
+- Low stock alerts on dashboard  
 
-In the output, you'll find options to open the app in a
+### 🛒 Sales & Orders
+- Create new sales orders  
+- Select customers and items  
+- Multiple payment methods (Cash / Credit / Mixed)  
+- Real-time stock deduction  
+- View all orders with date filtering  
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 🧾 Invoicing
+- Auto-generate PDF invoices  
+- Professional receipt-style format  
+- Open, print, or share invoices  
+- Upload invoices to Cloudinary  
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### 📊 Dashboard & Insights
+- Revenue, orders, and sales trends  
+- Latest orders preview  
+- Pull-to-refresh functionality  
 
-## Get a fresh project
+### 👤 Profile & Account
+- Update profile information & password  
+- Upload profile image to Cloudinary  
+- Edit contact details  
+- Account deletion option  
 
-When you're ready, run:
+---
 
-```bash
-npm run reset-project
-```
+## 📸 Screenshots
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/d5ee70af-bdc6-45b3-9f9d-591bfdf5a936" width="220" />
+  <img src="https://github.com/user-attachments/assets/a66fb500-8126-445e-8d33-ba644410ae20" width="220" />
+  <img src="https://github.com/user-attachments/assets/3faa7910-73d3-4c82-b3e8-4f16cd26b955" width="220" />
+  <img src="https://github.com/user-attachments/assets/236877a7-06a4-4410-a05e-c58c0ed546a7" width="220" />
+</p>
 
-## Learn more
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/e5562ce2-e617-4156-92b0-0ae6072521b8" width="220" />
+  <img src="https://github.com/user-attachments/assets/f13f4583-fbcb-4ba2-92f7-219a2f255a40" width="220" />
+  <img src="https://github.com/user-attachments/assets/b8d190d0-05f5-4396-b3d8-0b16a00d20cb" width="220" />
+  <img src="https://github.com/user-attachments/assets/bfc58004-9541-4ca1-a7ba-a25cb8fa22e0" width="220" />
+</p>
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 🛠️ Tech Stack
+- **Frontend:** React Native with Expo  
+- **Navigation:** Expo Router (file-based routing)  
+- **Styling:** NativeWind (TailwindCSS for React Native)  
+- **Backend:** Firebase (Authentication & Firestore)  
+- **PDF Generation:** expo-print  
+- **Cloud Storage:** Cloudinary  
+- **Email:** Nodemailer (backend)  
+- **State Management:** React Hooks + AsyncStorage  
+- **Icons:** Expo Vector Icons (Feather)  
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## 📋 Prerequisites
+- Node.js (v16 or higher)  
+- npm or yarn  
+- Expo CLI  
+- Firebase account  
+- Cloudinary account  
+- Android Studio (for emulator) or physical device  
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## 📄 License
+This project is licensed under the **MIT License** – see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 📥 Download & Try
+
+You can download the latest **MYBIZ APK** and install it on your Android device:
+
+👉 [Download APK](https://expo.dev/artifacts/eas/3EuR2cWFsPsaCjuGK8CKEz.apk)  
+
+Once downloaded:
+1. Transfer the APK to your Android device (or download directly on the device).
+2. Open the APK file.
+3. Allow installation from unknown sources if prompted.
+4. Launch **MYBIZ** and start managing your business 🚀
+
+---
+
+## 👨‍💻 Developer
+**Dinuka Lakmal**  
+- GitHub: [@dinuka-lakmal](https://github.com/Dinuka0512)  
+- LinkedIn: [Dinuka Lakmal](https://www.linkedin.com/in/dinuka-lakmal-aaa665300/)  
+
+---
+
+## Acknowledgments
+- Expo team for amazing development tools  
+- Firebase for backend services  
+- Cloudinary for image/PDF storage  
+- All contributors and testers  
+
+---
+
+## 📧 Contact
+For support or queries: **dinuka0512@gmail.com**
+
+---
+
+### MYBIZ – One app. Every Business. 🚀
+

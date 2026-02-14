@@ -51,20 +51,23 @@ Streamline your operations with **customers, items, orders, and sales management
 
 ## 📸 Screenshots
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/d5ee70af-bdc6-45b3-9f9d-591bfdf5a936" width="220" />
-  <img src="https://github.com/user-attachments/assets/a66fb500-8126-445e-8d33-ba644410ae20" width="220" />
-  <img src="https://github.com/user-attachments/assets/3faa7910-73d3-4c82-b3e8-4f16cd26b955" width="220" />
-  <img src="https://github.com/user-attachments/assets/236877a7-06a4-4410-a05e-c58c0ed546a7" width="220" />
-</p>
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/e5562ce2-e617-4156-92b0-0ae6072521b8" width="220" />
-  <img src="https://github.com/user-attachments/assets/f13f4583-fbcb-4ba2-92f7-219a2f255a40" width="220" />
-  <img src="https://github.com/user-attachments/assets/b8d190d0-05f5-4396-b3d8-0b16a00d20cb" width="220" />
-  <img src="https://github.com/user-attachments/assets/bfc58004-9541-4ca1-a7ba-a25cb8fa22e0" width="220" />
-</p>
-
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/d5ee70af-bdc6-45b3-9f9d-591bfdf5a936" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/a66fb500-8126-445e-8d33-ba644410ae20" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/3faa7910-73d3-4c82-b3e8-4f16cd26b955" width="220" /></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/236877a7-06a4-4410-a05e-c58c0ed546a7" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/e5562ce2-e617-4156-92b0-0ae6072521b8" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/f13f4583-fbcb-4ba2-92f7-219a2f255a40" width="220" /></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/b8d190d0-05f5-4396-b3d8-0b16a00d20cb" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/059290ac-c92b-4be6-8b56-7abb2bf5124e" width="220" /></td>
+    <td><img src="https://github.com/user-attachments/assets/bfc58004-9541-4ca1-a7ba-a25cb8fa22e0" width="220" /></td>
+  </tr>
+</table>
 ---
 
 ## 🛠️ Tech Stack
